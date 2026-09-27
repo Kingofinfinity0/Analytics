@@ -9,12 +9,12 @@ const TOOLS = [
   },
   {
     name: "get_sales_summary",
-    description: "Gumroad sales count, revenue, and running total for a given date. Defaults to yesterday. Reads stored data — use refresh_live_data first if you need this moment's numbers.",
+    description: "Gumroad sales count, revenue, and running total for a given date. Defaults to yesterday. Reads stored data — use refresh_live_data first if you need this moment's numbers. Gumroad's sales API does not provide product/site visit counts; visits come from tracked link clicks or Gumroad UTM analytics.",
     inputSchema: { type: "object", properties: { date: { type: "string", description: "YYYY-MM-DD, optional" } } },
   },
   {
     name: "get_funnel_summary",
-    description: "Aggregate funnel (reach, engagement, site visits, sales) over the last N days. Defaults to 7.",
+    description: "Aggregate funnel (reach, engagement, tracked link clicks, sales) over the last N days. Defaults to 7. Visit counts are available only when tracked links record clicks; Gumroad's sales API does not return site visits.",
     inputSchema: { type: "object", properties: { days: { type: "number", description: "Number of days back, optional" } } },
   },
   {
@@ -101,7 +101,7 @@ Deno.serve(async (req: Request) => {
       supportedVersions: ["2026-07-28"],
       capabilities: { tools: {} },
       _meta: { "io.modelcontextprotocol/serverInfo": { name: "analytics", version: "1.2.0" } },
-      instructions: "Analytics tools for stored Instagram metrics and Gumroad sales. Use refresh_live_data only when the user asks for live or current data.",
+      instructions: "Analytics tools for stored Instagram metrics and Gumroad sales. Gumroad's sales API does not return visits; explain that funnel visit counts represent tracked link clicks or separately configured Gumroad UTM analytics. Use refresh_live_data only when the user asks for live or current data.",
       ttlMs: 0,
       cacheScope: "public",
     })

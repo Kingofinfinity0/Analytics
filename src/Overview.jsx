@@ -53,6 +53,16 @@ export default function Overview({ dateRange = defaultRange() }) {
   }, [range.end, range.start, reloadKey])
 
   useEffect(() => {
+    const refreshOverview = () => setReloadKey((key) => key + 1)
+    const timer = window.setInterval(refreshOverview, 60_000)
+    window.addEventListener('focus', refreshOverview)
+    return () => {
+      window.clearInterval(timer)
+      window.removeEventListener('focus', refreshOverview)
+    }
+  }, [])
+
+  useEffect(() => {
     let cancelled = false
     async function loadSales() {
       setSalesData({ status: 'loading', rows: [] })
@@ -293,21 +303,19 @@ function trendOption(trend) { return { ...baseOption(), tooltip: { trigger: 'axi
 function comparisonOption(accounts) {
   const views = accounts.map((account) => finiteNumber(account.views))
   const follows = accounts.map((account) => finiteNumber(account.newFollowers))
-  const viewsMax = Math.max(1, ...views.filter((value) => value != null))
-  const followsMax = Math.max(1, ...follows.filter((value) => value != null))
+  const maxValue = Math.max(1, ...views.filter((value) => value != null), ...follows.filter((value) => value != null))
   return {
     ...baseOption(),
     tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' }, backgroundColor: '#FFFFFF', borderColor: '#E4E4E7', textStyle: { color: '#18181B' }, extraCssText: 'border-radius:8px;box-shadow:0 1px 3px rgba(0,0,0,.06);', formatter: (items) => items.map((item) => `${item.marker}${item.seriesName}: ${item.value == null ? 'No data' : number(item.value)}`).join('<br/>') },
     legend: { top: 0, left: 84, itemWidth: 10, itemHeight: 10, textStyle: { color: '#8B8B8F', fontSize: 10 }, data: ['Views today', 'New followers'] },
     grid: { top: 28, right: 12, bottom: 8, left: 84 },
     xAxis: [
-      { type: 'value', max: viewsMax * 1.08, splitLine: { lineStyle: { color: '#E4E4E7' } }, axisLabel: { color: '#8B8B8F' } },
-      { type: 'value', max: followsMax * 1.08, show: false },
+      { type: 'value', max: maxValue * 1.08, splitLine: { lineStyle: { color: '#E4E4E7' } }, axisLabel: { color: '#8B8B8F' } },
     ],
     yAxis: { type: 'category', data: accounts.map((account) => account.label), axisLine: { show: false }, axisTick: { show: false }, axisLabel: { color: '#18181B' } },
     series: [
       { name: 'Views today', type: 'bar', xAxisIndex: 0, barMaxWidth: 14, data: accounts.map((account, index) => ({ value: views[index], itemStyle: { color: account.color, borderRadius: [0, 4, 4, 0] } })) },
-      { name: 'New followers', type: 'bar', xAxisIndex: 1, barMaxWidth: 14, data: accounts.map((account, index) => ({ value: follows[index], itemStyle: { color: account.color, opacity: .65, borderRadius: [0, 4, 4, 0] } })) },
+      { name: 'New followers', type: 'bar', xAxisIndex: 0, barMaxWidth: 14, data: accounts.map((account, index) => ({ value: follows[index], itemStyle: { color: account.color, opacity: .65, borderRadius: [0, 4, 4, 0] } })) },
     ],
   }
 }

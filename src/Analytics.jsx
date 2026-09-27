@@ -3,7 +3,7 @@ import { supabase } from './supabase'
 
 const fallbacks = {
   instagram: ['posted_at', 'media_type', 'reach', 'likes', 'comments', 'saves', 'shares'],
-  gumroad: ['created_at', 'product_name', 'price_cents', 'email', 'refunded'],
+  gumroad: ['created_at', 'product_name', 'price_cents', 'refunded', 'referral_source', 'utm_source'],
 }
 
 function today() {
@@ -95,7 +95,9 @@ export default function Analytics() {
         })
         if (!cancelled) {
           setChips(dynamicChips)
-          setColumns(selectedColumns.length ? selectedColumns : fallbacks[platform])
+          setColumns(platform === 'gumroad'
+            ? [...new Set([...fallbacks.gumroad, ...selectedColumns])]
+            : selectedColumns.length ? selectedColumns : fallbacks[platform])
           setRows(tableResult.data ?? [])
           setStatus('ready')
         }

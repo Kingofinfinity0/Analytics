@@ -63,7 +63,7 @@
 .overview-page--new .sales-chart{height:300px;min-height:300px}
 .overview-page--new .post-insights-card{width:400px;height:400px;min-height:400px;justify-self:center}
 .overview-page--new .top-post{height:400px;min-height:400px}
-.overview-page--new .overview-chart--bar{height:190px}
+.overview-page--new .overview-chart--bar{height:150px}
 @media (max-width:1023px){.overview-page--new .overview-grid--priority>.overview-card,.overview-page--new .overview-grid--summary>.overview-card{height:400px;min-height:400px}.overview-page--new .overview-grid--summary{grid-template-columns:minmax(240px,1fr) minmax(400px,400px)}.overview-page--new .overview-grid--summary>.overview-card:nth-child(2){grid-column:auto}.overview-page--new .overview-grid--summary>.overview-card:last-child{grid-column:span 2}.overview-page--new .post-insights-card{width:min(400px,100%);justify-self:center}}
 @media (max-width:767px){.overview-page--new .overview-grid--priority>.overview-card,.overview-page--new .overview-grid--summary>.overview-card,.overview-page--new .overview-card--sankey,.overview-page--new .sales-card,.overview-page--new .top-post{height:400px;min-height:400px}.overview-page--new .post-insights-card{width:min(400px,100%);height:auto;min-height:0;aspect-ratio:1/1}.overview-page--new .overview-chart--sankey{height:310px}.overview-page--new .overview-chart--trend{height:290px}.overview-page--new .overview-chart--gauge{height:230px}.overview-page--new .sales-chart{height:300px;min-height:300px}}
 
@@ -73,6 +73,41 @@
 .overview-page--new .overview-chart--trend{--chart-height:290px}
 .overview-page--new .overview-chart--gauge{--chart-height:230px}
 .overview-page--new .sales-chart{--chart-height:300px}
-.overview-page--new .overview-chart--bar{--chart-height:190px}
+.overview-page--new .overview-chart--bar{--chart-height:150px}
+.overview-page--new .comparison-card{min-width:0;overflow:hidden}
+.overview-page--new .comparison-card .overview-chart--bar{max-width:100%;margin-left:0;margin-right:0}
+.overview-page--new .account-grid--stats{min-width:0;gap:var(--space-sm)}
+.overview-page--new .account-grid--stats>div{min-width:0;overflow:hidden;padding:var(--space-sm)}
+.overview-page--new .account-grid--stats dl{min-width:0}
+.overview-page--new .account-grid--stats dt{overflow-wrap:anywhere}
+.overview-page--new .sales-card-header{min-width:0;flex-wrap:wrap}
+.overview-page--new .sales-tabs{max-width:100%;min-width:0}
+.overview-page--new .sales-tabs button{min-width:0;padding-left:var(--space-sm);padding-right:var(--space-sm)}
 .overview-page--new .overview-chart.chart-loading{height:var(--chart-height,300px);min-height:0}
 .overview-page--new .account-grid--stats dl{grid-template-columns:repeat(2,minmax(0,1fr));gap:var(--space-sm)}
+
+/* Fit both overview rows to the available desktop viewport and size each chart canvas with its card. */
+@media (min-width:1024px){
+  .overview-page--new{--overview-row-height:clamp(300px,calc((100dvh - 80px)/2),460px)}
+  .overview-page--new .overview-grid--priority>.overview-card,.overview-page--new .overview-grid--summary>.overview-card{height:var(--overview-row-height);min-height:var(--overview-row-height)}
+  .overview-page--new .overview-card--sankey,.overview-page--new .sales-card,.overview-page--new .post-insights-card,.overview-page--new .top-post{height:var(--overview-row-height);min-height:var(--overview-row-height)}
+  .overview-page--new .overview-chart--sankey,.overview-page--new .overview-chart--trend{height:calc(var(--overview-row-height) - 80px)}
+  .overview-page--new .overview-chart--gauge{height:calc(var(--overview-row-height) - 170px)}
+  .overview-page--new .sales-chart{height:calc(var(--overview-row-height) - 100px);min-height:0}
+  .overview-page--new .overview-chart--bar{height:calc(var(--overview-row-height) - 230px)}
+  .overview-page--new .overview-chart--sankey{--chart-height:calc(var(--overview-row-height) - 90px)}
+  .overview-page--new .overview-chart--trend{--chart-height:calc(var(--overview-row-height) - 90px)}
+  .overview-page--new .overview-chart--gauge{--chart-height:calc(var(--overview-row-height) - 160px)}
+  .overview-page--new .sales-chart{--chart-height:calc(var(--overview-row-height) - 100px)}
+  .overview-page--new .overview-chart--bar{--chart-height:calc(var(--overview-row-height) - 230px)}
+}
+
+/* Keep post analytics metrics in a readable vertical list inside the card. */
+.overview-page--new .post-metric-list{grid-template-columns:minmax(0,1fr);grid-auto-rows:minmax(0,1fr);gap:2px;min-height:0;overflow-y:auto}
+.overview-page--new .post-metric-row{grid-template-columns:20px minmax(0,1fr);grid-template-rows:auto auto auto;align-content:center;column-gap:var(--space-sm);row-gap:0;min-height:0;padding:3px var(--space-sm);border-right:0!important}
+.overview-page--new .post-metric-arrow{grid-column:1;grid-row:1/4;align-self:center}
+.overview-page--new .post-metric-row strong{grid-column:2;grid-row:1;font-size:var(--font-caption)}
+.overview-page--new .post-metric-label{grid-column:2;grid-row:2;white-space:normal}
+.overview-page--new .post-metric-row small{grid-column:2;grid-row:3;white-space:normal}
+
+.overview-page--new .post-metric-row:nth-child(n+4){display:none}
