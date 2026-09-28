@@ -23,12 +23,22 @@ function colorFor(handle, index) {
   return name.includes('luca') ? accountColors.luca : name.includes('matthew') ? accountColors.matthew : index === 1 ? accountColors.luca : accountColors.matthew
 }
 
-export default function Overview({ dateRange = defaultRange() }) {
+export default function Overview({ dateRange }) {
   const [data, setData] = useState({ status: 'loading', summary: [], sankey: { status: 'loading' }, posts: [], accounts: [], metrics: [] })
   const [salesData, setSalesData] = useState({ status: 'loading', rows: [] })
   const [reloadKey, setReloadKey] = useState(0)
   const [salesWindow, setSalesWindow] = useState('month')
-  const range = useMemo(() => ({ start: dateRange.start, end: dateRange.end }), [dateRange.start, dateRange.end])
+  const [rangePreset, setRangePreset] = useState('7d')
+  const [customRange, setCustomRange] = useState(dateRange ?? defaultRange())
+
+  const range = useMemo(() => {
+    if (rangePreset === 'custom') return customRange
+    const end = new Date()
+    const start = new Date(end)
+    const days = rangePreset === '14d' ? 13 : rangePreset === '30d' ? 29 : 6
+    start.setDate(end.getDate() - days)
+    return { start: start.toISOString().slice(0, 10), end: end.toISOString().slice(0, 10) }
+  }, [rangePreset, customRange])
 
   useEffect(() => {
     let cancelled = false
@@ -104,6 +114,47 @@ export default function Overview({ dateRange = defaultRange() }) {
 
   if (data.status === 'error') return <section className="overview-page"><p className="data-message">{data.error}</p></section>
   return <section className="overview-page overview-page--new" aria-label="Overview">
+    <header className="overview-header">
+      <div>
+        <p className="eyebrow">Operating Dashboard</p>
+        <h1>Overview</h1>
+        <p className="range-indicator">Period: {range.start} to {range.end}</p>
+      </div>
+      <div className="range-controls" role="tablist" aria-label="Date range preset">
+        {[
+          { id: '7d', label: '7D' },
+          { id: '14d', label: '14D' },
+          { id: '30d', label: '30D' },
+          { id: 'custom', label: 'Custom' },
+        ].map((preset) => (
+          <button
+            key={preset.id}
+            type="button"
+            role="tab"
+            aria-selected={rangePreset === preset.id}
+            className={rangePreset === preset.id ? 'is-selected' : ''}
+            onClick={() => setRangePreset(preset.id)}
+          >
+            {preset.label}
+          </button>
+        ))}
+        {rangePreset === 'custom' && (
+          <div className="custom-range-inputs">
+            <input
+              type="date"
+              value={customRange.start}
+              onChange={(e) => setCustomRange((prev) => ({ ...prev, start: e.target.value }))}
+            />
+            <span>to</span>
+            <input
+              type="date"
+              value={customRange.end}
+              onChange={(e) => setCustomRange((prev) => ({ ...prev, end: e.target.value }))}
+            />
+          </div>
+        )}
+      </div>
+    </header>
     <div className="overview-grid overview-grid--priority">
       <SankeyCard {...data.sankey} accountViews={accountViews} onRetry={() => setReloadKey((key) => key + 1)} />
       <article className="overview-card goal-card"><CardTitle title="Revenue goal" subtitle={money(Math.max(goalCents - revenue, 0)) + ' remaining of ' + money(goalCents)} /><Chart className="overview-chart overview-chart--gauge" option={gaugeOption(percent)} /><strong className="goal-amount">{money(revenue)}</strong></article>
@@ -296,7 +347,7 @@ function salesOption(sales, echarts) {
   const currentDate = formatDateKey(new Date())
   const currentPoint = sales.points.find((point) => point.date === currentDate || point.isCurrentMonth)
   const axisLabels = sales.points.map((point) => point.isCurrentMonth ? `{current|${point.label}}` : point.label)
-  return { ...baseOption(), tooltip: { trigger: 'axis', valueFormatter: (value) => dollars(Number(value)), backgroundColor: '#FFFFFF', borderColor: '#E4E4E7', textStyle: { color: '#18181B' }, extraCssText: 'border-radius:8px;box-shadow:0 1px 3px rgba(0,0,0,.06);' }, grid: { top: 12, right: 10, bottom: 22, left: 8, containLabel: false }, xAxis: { type: 'category', data: sales.points.map((point) => point.label), boundaryGap: false, axisLine: { lineStyle: { color: '#E4E4E7' } }, axisTick: { show: false }, axisLabel: { color: '#8B8B8F', fontSize: 11, hideOverlap: true, formatter: (value, index) => axisLabels[index], rich: { current: { color: '#F97316', fontWeight: 700 } } }, axisPointer: { show: true, lineStyle: { color: '#A1A1AA', type: 'dashed' } } }, yAxis: { type: 'value', show: false, min: 0, max: (value) => value.max === 0 ? 1 : value.max * 1.08 }, series: [{ type: 'line', smooth: .25, symbol: 'none', showSymbol: false, data: sales.points.map((point) => point.value), lineStyle: { color: '#F97316', width: 2.5 }, itemStyle: { color: '#F97316' }, markPoint: { symbol: 'circle', symbolSize: 9, label: { show: false }, itemStyle: { color: '#FFFFFF', borderColor: '#F97316', borderWidth: 2 }, data: currentPoint ? [{ coord: [currentPoint.label, currentPoint.value] }] : [] }, areaStyle: { color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [{ offset: 0, color: 'rgba(249,115,22,.2)' }, { offset: 1, color: 'rgba(249,115,22,0)' }]) } }] }
+  return { ...baseOption(), tooltip: { trigger: 'axis', valueFormatter: (value) => dollars(Number(value)), backgroundColor: '#FFFFFF', borderColor: '#E4E4E7', textStyle: { color: '#18181B' }, extraCssText: 'border-radius:8px;box-shadow:0 1px 3px rgba(0,0,0,.06);' }, grid: { top: 12, right: 10, bottom: 22, left: 8, containLabel: false }, xAxis: { type: 'category', data: sales.points.map((point) => point.label), boundaryGap: false, axisLine: { lineStyle: { color: '#E4E4E7' } }, axisTick: { show: false }, axisLabel: { color: '#8B8B8F', fontSize: 11, hideOverlap: true, formatter: (value, index) => axisLabels[index], rich: { current: { color: '#10B981', fontWeight: 700 } } }, axisPointer: { show: true, lineStyle: { color: '#A1A1AA', type: 'dashed' } } }, yAxis: { type: 'value', show: false, min: 0, max: (value) => value.max === 0 ? 1 : value.max * 1.08 }, series: [{ type: 'line', smooth: .25, symbol: 'none', showSymbol: false, data: sales.points.map((point) => point.value), lineStyle: { color: '#10B981', width: 2.5 }, itemStyle: { color: '#10B981' }, markPoint: { symbol: 'circle', symbolSize: 9, label: { show: false }, itemStyle: { color: '#FFFFFF', borderColor: '#10B981', borderWidth: 2 }, data: currentPoint ? [{ coord: [currentPoint.label, currentPoint.value] }] : [] }, areaStyle: { color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [{ offset: 0, color: 'rgba(16,185,129,.2)' }, { offset: 1, color: 'rgba(16,185,129,0)' }]) } }] }
 }
 function baseOption() { return { animation: false, textStyle: { fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif' } } }
 function gaugeOption(value) { return { ...baseOption(), series: [{ type: 'gauge', startAngle: 210, endAngle: -30, min: 0, max: 100, pointer: { show: false }, progress: { show: true, roundCap: true, width: 12, itemStyle: { color: '#F59E0B' } }, axisLine: { lineStyle: { width: 12, color: [[1, '#EDEDEA']] } }, axisTick: { show: false }, splitLine: { show: false }, axisLabel: { show: false }, anchor: { show: false }, title: { show: false }, detail: { show: true, offsetCenter: [0, '2%'], color: '#18181B', fontSize: 16, fontWeight: 600, formatter: '{value}%' }, data: [{ value: Math.round(value) }] }] } }
@@ -308,15 +359,15 @@ function comparisonOption(accounts) {
   return {
     ...baseOption(),
     tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' }, backgroundColor: '#FFFFFF', borderColor: '#E4E4E7', textStyle: { color: '#18181B' }, extraCssText: 'border-radius:8px;box-shadow:0 1px 3px rgba(0,0,0,.06);', formatter: (items) => items.map((item) => `${item.marker}${item.seriesName}: ${item.value == null ? 'No data' : number(item.value)}`).join('<br/>') },
-    legend: { top: 0, left: 84, itemWidth: 10, itemHeight: 10, textStyle: { color: '#8B8B8F', fontSize: 10 }, data: ['Views today', 'New followers'] },
+    legend: { top: 0, left: 84, itemWidth: 10, itemHeight: 10, textStyle: { color: '#8B8B8F', fontSize: 10 }, data: ['Views', 'New follows'] },
     grid: { top: 28, right: 12, bottom: 8, left: 84 },
     xAxis: [
       { type: 'value', max: maxValue * 1.08, splitLine: { lineStyle: { color: '#E4E4E7' } }, axisLabel: { color: '#8B8B8F' } },
     ],
     yAxis: { type: 'category', data: accounts.map((account) => account.label), axisLine: { show: false }, axisTick: { show: false }, axisLabel: { color: '#18181B' } },
     series: [
-      { name: 'Views today', type: 'bar', xAxisIndex: 0, barMaxWidth: 14, data: accounts.map((account, index) => ({ value: views[index], itemStyle: { color: account.color, borderRadius: [0, 4, 4, 0] } })) },
-      { name: 'New followers', type: 'bar', xAxisIndex: 0, barMaxWidth: 14, data: accounts.map((account, index) => ({ value: follows[index], itemStyle: { color: account.color, opacity: .65, borderRadius: [0, 4, 4, 0] } })) },
+      { name: 'Views', type: 'bar', xAxisIndex: 0, barMaxWidth: 14, data: accounts.map((account, index) => ({ value: views[index], itemStyle: { color: account.color, borderRadius: [0, 4, 4, 0] } })) },
+      { name: 'New follows', type: 'bar', xAxisIndex: 0, barMaxWidth: 14, data: accounts.map((account, index) => ({ value: follows[index], itemStyle: { color: account.color, opacity: .65, borderRadius: [0, 4, 4, 0] } })) },
     ],
   }
 }

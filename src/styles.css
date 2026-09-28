@@ -120,3 +120,14 @@
 .overview-page--new .post-metric-row small{grid-column:2;grid-row:3;white-space:normal}
 
 .overview-page--new .post-metric-row:nth-child(n+4){display:none}
+
+/* Date range controls & indicators */
+.range-indicator { margin: var(--space-xs) 0 0; color: var(--color-text-tertiary); font-size: var(--font-footnote); }
+.range-controls { display: flex; align-items: center; gap: var(--space-xs); padding: 3px; border: 1px solid var(--color-border); border-radius: var(--radius-sm); background: var(--color-surface); }
+.range-controls button { min-height: var(--control-height-sm); padding: 0 var(--space-md); border: 0; border-radius: var(--radius-xs); color: var(--color-text-secondary); background: transparent; font: inherit; font-size: var(--font-caption); font-weight: var(--weight-medium); cursor: pointer; transition: background var(--duration-fast) var(--ease-standard), color var(--duration-fast) var(--ease-standard); }
+.range-controls button.is-selected { color: var(--color-text); background: var(--color-surface-elevated); }
+.custom-range-inputs { display: flex; align-items: center; gap: var(--space-xs); margin-left: var(--space-sm); color: var(--color-text-secondary); font-size: var(--font-footnote); }
+.custom-range-inputs input[type="date"] { min-height: var(--control-height-sm); padding: 0 var(--space-xs); border: 1px solid var(--color-border); border-radius: var(--radius-xs); color: var(--color-text); background: var(--color-surface); font-size: var(--font-footnote); color-scheme: dark; }
+.date-control-wrap { display: flex; align-items: center; gap: var(--space-sm); }
+.date-clear-btn { min-height: var(--control-height-md); padding: 0 var(--space-md); border: 1px solid var(--color-border); border-radius: var(--radius-sm); color: var(--color-text-secondary); background: var(--color-surface); font: inherit; font-size: var(--font-caption); cursor: pointer; transition: background var(--duration-fast) var(--ease-standard), color var(--duration-fast) var(--ease-standard); }
+.date-clear-btn:hover { color: var(--color-text); background: var(--color-surface-elevated); }

@@ -1,0 +1,9 @@
+
+> analytics-dashboard@0.0.0 dev
+> vite --host --port 3000
+
+
+  VITE v6.4.3  ready in 213 ms
+
+  ➜  Local:   http://localhost:3000/
+  ➜  Network: http://192.168.0.2:3000/

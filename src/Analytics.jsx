@@ -72,6 +72,13 @@ export default function Analytics() {
         const table = isInstagram ? 'instagram_posts' : 'gumroad_sales'
         let tableQuery = supabase.from(table).select('*').order(isInstagram ? 'posted_at' : 'created_at', { ascending: false }).limit(100)
         if (isInstagram && activeAccountId) tableQuery = tableQuery.eq('account_id', activeAccountId)
+        if (targetDate) {
+          const dateStart = `${targetDate}T00:00:00`
+          const dateEnd = `${targetDate}T23:59:59.999Z`
+          tableQuery = isInstagram
+            ? tableQuery.gte('posted_at', dateStart).lte('posted_at', dateEnd)
+            : tableQuery.gte('created_at', dateStart).lte('created_at', dateEnd)
+        }
 
         const [tableResult, ...metricResults] = await Promise.all([
           tableQuery,
@@ -79,12 +86,12 @@ export default function Analytics() {
             ? supabase.rpc('get_metric_delta', {
               p_account_id: activeAccountId,
               p_metric_name: field.field_name,
-              p_target_date: targetDate,
+              p_target_date: targetDate || today(),
             })
             : supabase.rpc('get_platform_metric_delta', {
               p_platform: 'gumroad',
               p_metric_name: field.field_name,
-              p_target_date: targetDate,
+              p_target_date: targetDate || today(),
             })),
         ])
         if (tableResult.error) throw tableResult.error
@@ -123,7 +130,10 @@ export default function Analytics() {
           <h1>{platform === 'instagram' ? 'Instagram' : 'Gumroad'}</h1>
         </div>
         <div className="analytics-controls">
-          <label className="date-control">Date <input type="date" value={targetDate} onChange={(event) => setTargetDate(event.target.value)} /></label>
+          <div className="date-control-wrap">
+            <label className="date-control">Date <input type="date" value={targetDate} onChange={(event) => setTargetDate(event.target.value)} /></label>
+            {targetDate && <button type="button" className="date-clear-btn" onClick={() => setTargetDate('')}>All Dates</button>}
+          </div>
           <div className="workbook-tabs" role="tablist" aria-label="Data sources">
             {['instagram', 'gumroad'].map((name) => <button key={name} type="button" role="tab" aria-selected={platform === name} className={platform === name ? 'is-selected' : ''} onClick={() => { setPlatform(name); setAccountId(null); setRows([]); setChips([]) }} >{name === 'instagram' ? 'Instagram' : 'Gumroad'}</button>)}
           </div>
@@ -141,7 +151,7 @@ export default function Analytics() {
 
       <section className="data-card">
         <div className="table-header"><div><span className="table-kicker">Workbook</span><h2>{labelFor(platform)} data</h2></div><span className="row-count">{rows.length} rows</span></div>
-        {status === 'error' ? <p className="data-message">{error}</p> : <div className="table-wrap"><table><thead><tr>{columns.map((column) => <th key={column}>{labelFor(column)}</th>)}</tr></thead><tbody>{rows.length ? rows.map((row, index) => <tr key={row.post_id ?? row.sale_id ?? index}>{columns.map((column) => <td key={column}>{formatValue(row[column], column)}</td>)}</tr>) : <tr><td className="empty-table" colSpan={columns.length || 1}>{status === 'loading' ? 'Loading data…' : 'No records yet.'}</td></tr>}</tbody></table></div>}
+        {status === 'error' ? <p className="data-message">{error}</p> : <div className="table-wrap"><table><thead><tr>{columns.map((column) => <th key={column}>{labelFor(column)}</th>)}</tr></thead><tbody>{rows.length ? rows.map((row, index) => <tr key={row.post_id ?? row.sale_id ?? index}>{columns.map((column) => <td key={column}>{formatValue(row[column], column)}</td>)}</tr>) : <tr><td className="empty-table" colSpan={columns.length || 1}>{status === 'loading' ? 'Loading data…' : (targetDate ? `No ${platform === 'instagram' ? 'posts' : 'sales'} recorded on ${targetDate}.` : 'No records yet.')}</td></tr>}</tbody></table></div>}
       </section>
     </section>
   )
