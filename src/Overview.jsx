@@ -43,7 +43,7 @@ export default function Overview({ dateRange = defaultRange() }) {
           supabase.rpc('get_overview_sankey_metrics', { p_start_date: range.start, p_end_date: range.end }),
         ])
         for (const result of [summaries, posts, accounts, metrics]) if (result.error) throw result.error
-        if (!cancelled) setData({ status: 'ready', summary: summaries.data ?? [], posts: posts.data ?? [], accounts: accounts.data ?? [], metrics: metrics.data ?? [], sankey: sankey.error ? { status: 'error', error: sankey.error.message } : { status: 'ready', values: sankey.data?.[0] } })
+        if (!cancelled) setData({ status: 'ready', summary: summaries.data ?? [], posts: posts.data ?? [], accounts: accounts.data ?? [], metrics: metrics.data ?? [], sankey: sankey.error ? { status: 'error', error: sankey.error.message } : { status: 'ready', ...sankey.data } })
       } catch (error) {
         if (!cancelled) setData((current) => ({ ...current, status: 'error', error: error.message }))
       }
@@ -112,7 +112,7 @@ export default function Overview({ dateRange = defaultRange() }) {
     <div className="overview-grid overview-grid--summary">
       <SalesRunningCard sales={sales} status={salesData.status} selectedWindow={salesWindow} onWindowChange={setSalesWindow} />
       {topPost ? <PostInsightsCard post={topPost} benchmark={postBenchmark} /> : <article className="overview-card top-post"><PostCardEmpty /></article>}
-      <article className="overview-card comparison-card"><CardTitle title="Account comparison" subtitle={comparisonSubtitle} /><Chart className="overview-chart overview-chart--bar" option={comparisonOption(snapshots)} /><div className="account-grid account-grid--stats">{snapshots.map((account) => <AccountStats account={account} key={account.account_id} todayKey={todayKey} />)}</div></article>
+      <article className="overview-card comparison-card"><CardTitle title="Account comparison" subtitle={comparisonSubtitle} /><Chart className="overview-chart overview-chart--bar" option={comparisonOption(snapshots)} /></article>
     </div>
   </section>
 }
@@ -139,8 +139,8 @@ function PostInsightsCard({ post, benchmark }) {
       <section className={`post-slide ${activeCard === 0 ? 'is-active' : ''}`} aria-hidden={activeCard !== 0}>
         <header className="post-slide-header"><div className="post-slide-title"><PlatformIcon platform={platform} /><span>Latest post</span></div><span className="post-published">{posted}</span></header>
         <div className="latest-post-body">
-          <div className="latest-post-copy"><span className="post-media-type">{mediaType}</span><p>{post.caption || 'No caption available.'}</p><span className="latest-post-handle">{post.permalink ? <a href={post.permalink} target="_blank" rel="noreferrer">View post ↗</a> : 'Recent post'}</span></div>
-          <div className="post-highlight"><span className="post-highlight-value">{insight ? `${insight.rate.toFixed(1)}%` : '—'}</span><span className="post-highlight-label">{insight?.label ?? 'Engagement rate'}</span></div>
+          <div className="latest-post-copy"><span className="post-media-type">{mediaType}</span><p>{post.caption || 'No caption available.'}</p><span className="latest-post-handle">{post.permalink ? '@' + (post.handle || 'account') : 'Account post'}</span></div>
+          <div className="post-highlight"><span className="post-highlight-value">{insight ? `${insight.rate.toFixed(1)}%` : '—'}</span><span className="post-highlight-label">{insight?.label ?? 'Engagement'}</span></div>
         </div>
         <p className="post-insight-copy">{insight?.description ?? 'There is not enough post data to compare engagement with your other content yet.'}</p>
       </section>
@@ -157,23 +157,23 @@ function PostInsightsCard({ post, benchmark }) {
             <small>{delta == null ? 'No baseline' : state === 'neutral' ? 'No change' : `${delta > 0 ? '+' : '−'}${number(Math.abs(delta))} vs avg.`}</small>
           </div>
         })}</div>
-        <footer className="post-metric-legend"><span><i className="legend-up" />Improvement</span><span><i className="legend-down" />Decrease</span><span><i className="legend-neutral" />No change / no data</span></footer>
+        <footer className="post-metric-legend"><span><i className="legend-up" />Improvement</span><span><i className="legend-down" />Decrease</span><span><i className="legend-neutral" />No change</span></footer>
       </section>
     </div>
     <nav className="post-slide-controls" aria-label="Post card navigation">
       <button type="button" aria-label="Show latest post card" disabled={activeCard === 0} onClick={() => setActiveCard(0)}>‹</button>
-      <div className="post-slide-dots">{[0, 1].map((index) => <button key={index} type="button" aria-label={`Show ${index === 0 ? 'latest post' : 'post analytics'} card`} aria-current={activeCard === index ? 'step' : undefined} className={activeCard === index ? 'is-active' : ''} onClick={() => setActiveCard(index)} />)}</div>
+      <div className="post-slide-dots">{[0, 1].map((index) => <button key={index} type="button" aria-label={`Show ${index === 0 ? 'latest post' : 'post analytics'} card`} aria-current={activeCard === index ? 'true' : undefined} className={activeCard === index ? 'is-active' : ''} onClick={() => setActiveCard(index)} />)}</div>
       <button type="button" aria-label="Show post analytics card" disabled={activeCard === 1} onClick={() => setActiveCard(1)}>›</button>
     </nav>
   </article>
 }
 
-function PostCardEmpty() { return <div className="post-card-empty"><span className="post-empty-icon"><PlatformIcon platform="instagram" /></span><h2>Latest post</h2><p>No posts published in this date range.</p></div> }
+function PostCardEmpty() { return <div className="post-card-empty"><span className="post-empty-icon"><PlatformIcon platform="instagram" /></span><h2>Latest post</h2><p>No posts published in this range yet.</p></div> }
 
 function PlatformIcon({ platform }) {
-  if (platform.includes('thread')) return <svg className="platform-icon" viewBox="0 0 24 24" fill="currentColor" aria-label="Threads"><path d="M12.16 2C6.54 2 3.2 5.54 3.2 11.52c0 6.34 3.27 10.48 8.6 10.48 4.06 0 6.57-2.2 6.57-5.64 0-2.54-1.44-4.26-4.25-5.08-.3-1.29-.9-1.85-1.89-1.85-.98 0-1.72.63-1.72 1.6 0 .58.28 1 .88 1.33-1.45.24-2.43 1.2-2.43 2.55 0 1.63 1.34 2.7 3.28 2.7 2.2 0 3.58-1.31 3.7-3.47 1.12.57 1.63 1.3 1.63 2.36 0 2.35-1.95 3.83-5.07 3.83-4.2 0-6.64-3.2-6.64-8.74 0-5.22 2.42-8.08 6.82-8.08 3.2 0 5.26 1.56 6.06 4.48l2.26-.68C19.85 4.02 16.85 2 12.16 2Zm-.97 12.38c.53 0 .95.2 1.25.57.31.38.48.92.5 1.62-1.46-.02-2.22-.48-2.22-1.24 0-.58.19-.95.47-.95Z" /></svg>
-  if (platform.includes('facebook')) return <svg className="platform-icon" viewBox="0 0 24 24" fill="currentColor" aria-label="Facebook"><path d="M13.5 21v-8.2h2.76l.41-3.2H13.5V7.56c0-.93.26-1.56 1.6-1.56h1.7V3.14c-.3-.04-1.34-.14-2.55-.14-2.53 0-4.26 1.54-4.26 4.37V9.6H7.13v3.2H9.99V21h3.51Z" /></svg>
-  return <svg className="platform-icon platform-icon--instagram" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-label="Instagram"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.7" cy="6.5" r=".8" fill="currentColor" stroke="none"/></svg>
+  if (platform.includes('thread')) return <svg className="platform-icon" viewBox="0 0 24 24" fill="currentColor" aria-label="Threads"><path d="M12.16 2C6.54 2 3.2 5.54 3.2 11.52c0 6.34 3.27 10.48 8.96 10.48 3.24 0 5.87-1.36 7.54-3.79l-2.64-1.57c-1.02 1.34-2.44 2.12-4.58 2.12-3.41 0-5.22-2.08-5.22-5.24 0-3.34 1.98-5.39 5.18-5.39 1.9 0 3.2.73 4.1 1.96l2.53-1.9C18.63 3.36 15.78 2 12.16 2Z" /></svg>
+  if (platform.includes('facebook')) return <svg className="platform-icon" viewBox="0 0 24 24" fill="currentColor" aria-label="Facebook"><path d="M13.5 21v-8.2h2.76l.41-3.2H13.5V7.56c0-.93.26-1.5 1.54-1.5h1.64V2.92c-.28-.04-1.27-.12-2.41-.12-2.39 0-4.02 1.46-4.02 4.14v2.32H7.5v3.2h2.75V21h3.25Z" /></svg>
+  return <svg className="platform-icon platform-icon--instagram" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-label="Instagram"><rect x="3" y="3" width="18" height="18" rx="5" /><circle cx="12" cy="12" r="4" /><circle cx="17.1" cy="6.9" r="1.2" fill="currentColor" stroke="none" /></svg>
 }
 
 function finiteNumber(value) { const numberValue = Number(value); return value == null || value === '' || !Number.isFinite(numberValue) ? null : numberValue }
@@ -197,7 +197,8 @@ function choosePostInsight(post, benchmark) {
     { key: 'likes', label: 'Like rate', verb: 'liked' },
   ].map((candidate) => ({ ...candidate, count: finiteNumber(post[candidate.key]), average: finiteNumber(benchmark?.averages?.[candidate.key]) }))
     .filter((candidate) => candidate.count != null)
-    .map((candidate) => ({ ...candidate, rate: candidate.count / reach * 100, averageRate: benchmark && candidate.average != null && finiteNumber(benchmark.averages.reach) > 0 ? candidate.average / benchmark.averages.reach * 100 : null }))
+    .map((candidate) => ({ ...candidate, rate: candidate.count / reach * 100, averageRate: benchmark && candidate.average != null && finiteNumber(benchmark.averages.reach) > 0 ? candidate.average / reach * 100 : null }))
+    .filter((candidate) => candidate.rate != null)
   if (!candidates.length) return null
   const compared = candidates.filter((candidate) => candidate.averageRate != null)
   const chosen = (compared.length ? compared : candidates).sort((a, b) => compared.length ? (b.rate - b.averageRate) - (a.rate - a.averageRate) : b.rate - a.rate)[0]
@@ -211,7 +212,7 @@ function choosePostInsight(post, benchmark) {
         : `Your ${chosen.label.toLowerCase()} is ${Math.abs(diff).toFixed(1)} percentage points lower than your other posts (${chosen.averageRate.toFixed(1)}% average).`
   return { ...chosen, description }
 }
-function AccountStats({ account, todayKey }) { const dateLabel = (date) => date === todayKey ? 'today' : date ? new Date(`${date}T00:00:00`).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) : '—'; return <div><b style={{ color: account.color }}>{account.label}</b><dl><div><dt>Followers total</dt><dd>{account.followers == null ? '—' : number(account.followers)}</dd></div><div><dt>Following total</dt><dd>{account.following == null ? '—' : number(account.following)}</dd></div><div><dt>Views · {dateLabel(account.viewsDate)}</dt><dd>{account.views == null ? '—' : number(account.views)}</dd></div><div><dt>New follows · {dateLabel(account.followsDate)}</dt><dd>{account.newFollowers == null ? '—' : number(account.newFollowers)}</dd></div></dl></div> }
+function AccountStats({ account, todayKey }) { const dateLabel = (date) => date === todayKey ? 'today' : date ? new Date(`${date}T00:00:00`).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) : 'no data'; return <div className="account-grid--stats"><div><dt>Followers</dt><dd>{number(account.followers ?? 0)}</dd></div><div><dt>Following</dt><dd>{number(account.following ?? 0)}</dd></div><div><dt>Views</dt><dd>{number(account.views ?? 0)} <small>{dateLabel(account.viewsDate)}</small></dd></div><div><dt>New follows</dt><dd>{number(account.newFollowers ?? 0)} <small>{dateLabel(account.followsDate)}</small></dd></div></div> }
 function SalesRunningCard({ sales, status, selectedWindow, onWindowChange }) {
   return <article className="overview-card sales-card">
     <header className="sales-card-header">
@@ -245,7 +246,7 @@ function makeSnapshots(metrics, accounts) {
     const latestFor = (name) => rows.filter((row) => row.metric_name === name).sort((a, b) => String(b.date).localeCompare(String(a.date)))[0]
     const read = (name) => { const row = latestFor(name); return { value: finiteNumber(row?.metric_value), date: row?.date ?? null } }
     const latest = rows.map((row) => row.date).sort().at(-1)
-    return { ...account, metricDate: latest, reach: metricValue(latestFor('reach')), followers: read('follower_count').value, following: read('follows_count').value, views: read('views').value, viewsDate: read('views').date, newFollowers: read('follows').value, followsDate: read('follows').date }
+    return { ...account, metricDate: latest, reach: metricValue(latestFor('reach')), followers: read('follower_count').value, following: read('follows_count').value, views: read('views').value, follows: read('new_follows').value, viewsDate: read('views').date, followsDate: read('new_follows').date, newFollowers: read('new_follows').value }
   })
 }
 function makeSalesSeries(summary, selectedWindow) {
@@ -297,9 +298,9 @@ function salesOption(sales, echarts) {
   const axisLabels = sales.points.map((point) => point.isCurrentMonth ? `{current|${point.label}}` : point.label)
   return { ...baseOption(), tooltip: { trigger: 'axis', valueFormatter: (value) => dollars(Number(value)), backgroundColor: '#FFFFFF', borderColor: '#E4E4E7', textStyle: { color: '#18181B' }, extraCssText: 'border-radius:8px;box-shadow:0 1px 3px rgba(0,0,0,.06);' }, grid: { top: 12, right: 10, bottom: 22, left: 8, containLabel: false }, xAxis: { type: 'category', data: sales.points.map((point) => point.label), boundaryGap: false, axisLine: { lineStyle: { color: '#E4E4E7' } }, axisTick: { show: false }, axisLabel: { color: '#8B8B8F', fontSize: 11, hideOverlap: true, formatter: (value, index) => axisLabels[index], rich: { current: { color: '#F97316', fontWeight: 700 } } }, axisPointer: { show: true, lineStyle: { color: '#A1A1AA', type: 'dashed' } } }, yAxis: { type: 'value', show: false, min: 0, max: (value) => value.max === 0 ? 1 : value.max * 1.08 }, series: [{ type: 'line', smooth: .25, symbol: 'none', showSymbol: false, data: sales.points.map((point) => point.value), lineStyle: { color: '#F97316', width: 2.5 }, itemStyle: { color: '#F97316' }, markPoint: { symbol: 'circle', symbolSize: 9, label: { show: false }, itemStyle: { color: '#FFFFFF', borderColor: '#F97316', borderWidth: 2 }, data: currentPoint ? [{ coord: [currentPoint.label, currentPoint.value] }] : [] }, areaStyle: { color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [{ offset: 0, color: 'rgba(249,115,22,.2)' }, { offset: 1, color: 'rgba(249,115,22,0)' }]) } }] }
 }
-function baseOption() { return { animation: false, textStyle: { fontFamily: '-apple-system, BlinkMacSystemFont, \"Segoe UI\", Roboto, sans-serif' } } }
-function gaugeOption(value) { return { ...baseOption(), series: [{ type: 'gauge', startAngle: 210, endAngle: -30, min: 0, max: 100, pointer: { show: false }, progress: { show: true, roundCap: true, width: 12, itemStyle: { color: '#10B981' } }, axisLine: { lineStyle: { width: 12, color: [[1, '#EDEDEA']] } }, axisTick: { show: false }, splitLine: { show: false }, axisLabel: { show: false }, anchor: { show: false }, title: { show: false }, detail: { show: true, offsetCenter: [0, '2%'], color: '#18181B', fontSize: 16, fontWeight: 600, formatter: '{value}%' }, data: [{ value: Math.round(value) }] }] } }
-function trendOption(trend) { return { ...baseOption(), tooltip: { trigger: 'axis', backgroundColor: '#FFFFFF', borderColor: '#E4E4E7', textStyle: { color: '#18181B' }, extraCssText: 'border-radius:8px;box-shadow:0 1px 3px rgba(0,0,0,.06);' }, legend: { bottom: 0, textStyle: { color: '#8B8B8F' } }, grid: { top: 10, right: 8, bottom: 32, left: 32 }, xAxis: { type: 'category', data: trend.dates, boundaryGap: false, axisLine: { lineStyle: { color: '#E4E4E7' } }, axisLabel: { color: '#8B8B8F', fontSize: 10, interval: 1, formatter: (value) => new Date(`${value}T00:00:00Z`).toLocaleDateString(undefined, { weekday: 'short', timeZone: 'UTC' }) } }, yAxis: { type: 'value', min: 0, splitLine: { lineStyle: { color: '#E4E4E7' } }, axisLabel: { color: '#8B8B8F', fontSize: 10 } }, series: trend.series.map((account) => ({ name: account.label, type: 'line', smooth: .25, symbol: 'circle', symbolSize: 5, showSymbol: true, lineStyle: { width: 2, color: account.color }, itemStyle: { color: account.color }, data: account.data })) } }
+function baseOption() { return { animation: false, textStyle: { fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif' } } }
+function gaugeOption(value) { return { ...baseOption(), series: [{ type: 'gauge', startAngle: 210, endAngle: -30, min: 0, max: 100, pointer: { show: false }, progress: { show: true, roundCap: true, width: 12, itemStyle: { color: '#F59E0B' } }, axisLine: { lineStyle: { width: 12, color: [[1, '#EDEDEA']] } }, axisTick: { show: false }, splitLine: { show: false }, axisLabel: { show: false }, anchor: { show: false }, title: { show: false }, detail: { show: true, offsetCenter: [0, '2%'], color: '#18181B', fontSize: 16, fontWeight: 600, formatter: '{value}%' }, data: [{ value: Math.round(value) }] }] } }
+function trendOption(trend) { return { ...baseOption(), tooltip: { trigger: 'axis', backgroundColor: '#FFFFFF', borderColor: '#E4E4E7', textStyle: { color: '#18181B' }, extraCssText: 'border-radius:8px;box-shadow:0 1px 3px rgba(0,0,0,.06);' }, legend: { top: 0, left: 0, itemWidth: 10, itemHeight: 10, textStyle: { color: '#8B8B8F', fontSize: 10 }, data: trend.series.map((account) => account.label) }, grid: { top: 24, right: 12, bottom: 16, left: 8, containLabel: false }, xAxis: { type: 'category', boundaryGap: false, data: trend.dates, axisLine: { lineStyle: { color: '#E4E4E7' } }, axisTick: { show: false }, axisLabel: { color: '#8B8B8F', fontSize: 10, hideOverlap: true } }, yAxis: { type: 'value', show: false }, series: trend.series.map((account) => ({ name: account.label, type: 'line', smooth: true, symbol: 'none', data: account.data, lineStyle: { width: 2 }, itemStyle: { color: account.color } })) } }
 function comparisonOption(accounts) {
   const views = accounts.map((account) => finiteNumber(account.views))
   const follows = accounts.map((account) => finiteNumber(account.newFollowers))

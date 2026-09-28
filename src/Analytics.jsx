@@ -125,7 +125,7 @@ export default function Analytics() {
         <div className="analytics-controls">
           <label className="date-control">Date <input type="date" value={targetDate} onChange={(event) => setTargetDate(event.target.value)} /></label>
           <div className="workbook-tabs" role="tablist" aria-label="Data sources">
-            {['instagram', 'gumroad'].map((name) => <button key={name} type="button" role="tab" aria-selected={platform === name} className={platform === name ? 'is-selected' : ''} onClick={() => { setPlatform(name); setAccountId(null); setColumns(fallbacks[name]); setRows([]); setChips([]) }}>{labelFor(name)}</button>)}
+            {['instagram', 'gumroad'].map((name) => <button key={name} type="button" role="tab" aria-selected={platform === name} className={platform === name ? 'is-selected' : ''} onClick={() => { setPlatform(name); setAccountId(null); setRows([]); setChips([]) }} >{name === 'instagram' ? 'Instagram' : 'Gumroad'}</button>)}
           </div>
         </div>
       </header>
@@ -136,7 +136,7 @@ export default function Analytics() {
 
       <div className="metric-grid" aria-busy={status === 'loading'}>
         {chips.map((chip) => <MetricChip key={chip.field_name} chip={chip} />)}
-        {placeholderChips && Array.from({ length: 3 }, (_, index) => <div className="metric-chip metric-chip--empty" key={index}><MetricIcon /><span>Metric</span><strong>—</strong><small>Awaiting selection</small></div>)}
+        {placeholderChips && Array.from({ length: 3 }, (_, index) => <div className="metric-chip metric-chip--empty" key={index}><MetricIcon /><span>Metric</span><strong>—</strong><small>Awaiting data</small></div>)}
       </div>
 
       <section className="data-card">
@@ -152,7 +152,7 @@ function MetricChip({ chip }) {
   const delta = metric?.delta == null ? null : Number(metric.delta)
   const positive = delta != null && delta >= 0
   const comparison = metric?.previous_value == null ? 'No previous snapshot' : `${positive ? '↑' : '↓'} ${formatValue(Math.abs(delta), chip.field_name)} vs previous snapshot`
-  return <article className="metric-chip"><MetricIcon /><span>{labelFor(chip.field_name)}</span><strong>{formatValue(metric?.current_value, chip.field_name)}</strong><small className={delta == null ? '' : positive ? 'positive' : 'negative'}>{comparison}</small></article>
+  return <article className="metric-chip"><MetricIcon /><span>{labelFor(chip.field_name)}</span><strong>{formatValue(metric?.current_value, chip.field_name)}</strong><small className={delta == null ? 'neutral' : positive ? 'up' : 'down'}>{comparison}</small></article>
 }
 
-function MetricIcon() { return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><rect x="4" y="4" width="16" height="16" rx="4" /><path d="M8 15l3-3 2 2 3-4" /></svg> }
+function MetricIcon() { return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><rect x="4" y="4" width="16" height="16" rx="3" /><path d="M8 15l2.5-3 2 2 3.5-5" /><path d="M16 8h2v2" /></svg> }
