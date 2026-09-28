@@ -1,8 +1,11 @@
 import { createClient } from '@supabase/supabase-js'
 
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://placeholder.supabase.co'
+const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || 'placeholder-key'
+
 export const supabase = createClient(
-  import.meta.env.VITE_SUPABASE_URL,
-  import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+  supabaseUrl,
+  supabaseKey,
   {
     auth: {
       persistSession: true,
@@ -14,9 +17,14 @@ export const supabase = createClient(
 )
 
 export async function restoreSession() {
-  const { data: { session } } = await supabase.auth.getSession()
-  if (!session) return null
+  try {
+    const { data: { session } } = await supabase.auth.getSession()
+    if (!session) return null
 
-  const { data, error } = await supabase.auth.refreshSession()
-  return error ? session : data.session
+    const { data, error } = await supabase.auth.refreshSession()
+    return error ? session : data.session
+  } catch (err) {
+    console.warn('Session restore failed:', err)
+    return null
+  }
 }
