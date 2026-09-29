@@ -70,8 +70,12 @@ export default function Analytics() {
         const selectedChips = fields.filter((field) => field.display_as === 'chip')
         const selectedColumns = fields.filter((field) => field.display_as === 'column').map((field) => field.field_name)
         const table = isInstagram ? 'instagram_posts' : 'gumroad_sales'
-        let tableQuery = supabase.from(table).select('*').order(isInstagram ? 'posted_at' : 'created_at', { ascending: false }).limit(100)
+        const dateColumn = isInstagram ? 'posted_at' : 'created_at'
+        let tableQuery = supabase.from(table).select('*').order(dateColumn, { ascending: false }).limit(100)
         if (isInstagram && activeAccountId) tableQuery = tableQuery.eq('account_id', activeAccountId)
+        if (targetDate) {
+          tableQuery = tableQuery.gte(dateColumn, `${targetDate}T00:00:00.000Z`).lte(dateColumn, `${targetDate}T23:59:59.999Z`)
+        }
 
         const [tableResult, ...metricResults] = await Promise.all([
           tableQuery,
