@@ -6,6 +6,7 @@
   --target-min:44px; --control-height-sm:32px; --control-height-md:40px; --control-height-lg:48px; --radius-sm:8px; --radius-md:12px; --radius-lg:16px; --radius-xl:24px; --radius-full:9999px;
   --duration-fast:150ms; --duration-base:250ms; --ease-standard:cubic-bezier(.4,0,.2,1); --content-max:1024px; --content-wide:1440px; --gutter:clamp(16px,4vw,32px);
   --color-bg:#F4F4F5; --color-surface:#FFFFFF; --color-surface-elevated:#F3F2EE; --color-text:#18181B; --color-text-secondary:#8B8B8F; --color-text-tertiary:#8B8B8F; --color-border:#E4E4E7; --color-accent:#F59E0B; --color-accent-soft:rgba(245,158,11,.12); --shadow-1:0 1px 3px rgba(0,0,0,.06); --shadow-2:0 4px 12px rgba(0,0,0,.08);
+  --color-flow-views:#2DD4BF; --color-flow-visits:#6366F1; --color-flow-sales:#16A34A;
   font-family:var(--font-sans); color:var(--color-text); background:var(--color-bg); font-synthesis:none;
 }
 *{box-sizing:border-box} html,body,#root{min-height:100%;margin:0} body{font-size:var(--font-body);line-height:var(--leading-body)} button,input{font:inherit} button,a,input{-webkit-tap-highlight-color:transparent}

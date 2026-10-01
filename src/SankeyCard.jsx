@@ -3,7 +3,7 @@ import ClientEChart from './ClientEChart'
 
 function tokenPalette() {
   const style = getComputedStyle(document.documentElement)
-  return { views: style.getPropertyValue('--color-flow-views').trim() || '#2DD4BF', visits: style.getPropertyValue('--color-flow-visits').trim() || '#6366F1', sales: style.getPropertyValue('--color-flow-sales').trim() || '#7C3AED', muted: style.getPropertyValue('--color-text-tertiary').trim() || '#A1A1AA' }
+  return { views: style.getPropertyValue('--color-flow-views').trim() || '#2DD4BF', visits: style.getPropertyValue('--color-flow-visits').trim() || '#6366F1', sales: style.getPropertyValue('--color-flow-sales').trim() || '#16A34A', muted: style.getPropertyValue('--color-text-tertiary').trim() || '#A1A1AA' }
 }
 function rgba(hex, alpha) {
   const value = hex.replace('#', '')
