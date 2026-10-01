@@ -68,6 +68,19 @@ function App() {
     })
   }
 
+  function reorderItem(id, direction) {
+    setItems((current) => {
+      const index = current.findIndex((item) => item.id === id)
+      if (index < 0) return current
+      const targetIndex = index + direction
+      if (targetIndex < 0 || targetIndex >= current.length) return current
+      const next = [...current]
+      const [moved] = next.splice(index, 1)
+      next.splice(targetIndex, 0, moved)
+      return next
+    })
+  }
+
   if (session === undefined) return null
   if (!session) return <Routes><Route path="/signup" element={<Auth />} /><Route path="*" element={<Navigate to="/login" replace />} /><Route path="/login" element={<Auth />} /></Routes>
 
@@ -96,6 +109,7 @@ function App() {
               to={`/${id}`}
               className={({ isActive }) => `nav-item ${isActive ? 'is-active' : ''} ${draggedId === id ? 'is-dragging' : ''}`}
               title={collapsed ? label : undefined}
+              aria-roledescription="reorderable navigation item"
               draggable
               onDragStart={(event) => {
                 setDraggedId(id)
@@ -111,6 +125,15 @@ function App() {
                 setDraggedId(null)
               }}
               onDragEnd={() => setDraggedId(null)}
+              onKeyDown={(event) => {
+                if (event.altKey && event.key === 'ArrowUp') {
+                  event.preventDefault()
+                  reorderItem(id, -1)
+                } else if (event.altKey && event.key === 'ArrowDown') {
+                  event.preventDefault()
+                  reorderItem(id, 1)
+                }
+              }}
             >
               <Icon />
               <span className="nav-label">{label}</span>
