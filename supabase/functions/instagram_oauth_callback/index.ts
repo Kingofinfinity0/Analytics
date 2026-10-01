@@ -79,6 +79,15 @@ Deno.serve(async (req: Request) => {
   return new Response(html(`Connected ${accountLabel} successfully. ${syncSummary} You can close this window.`), { headers: { "Content-Type": "text/html" } })
 })
 
+function escapeHtml(str: string): string {
+  return str
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;")
+}
+
 function html(message: string): string {
-  return `<html><body style="font-family: sans-serif; padding: 40px; text-align: center;"><h2>${message}</h2></body></html>`
+  return `<html><body style="font-family: sans-serif; padding: 40px; text-align: center;"><h2>${escapeHtml(message)}</h2></body></html>`
 }
