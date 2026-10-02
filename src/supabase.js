@@ -1,8 +1,15 @@
 import { createClient } from '@supabase/supabase-js'
 
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
+const supabasePublishableKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || import.meta.env.VITE_SUPABASE_ANON_KEY
+
+if (!supabaseUrl || !supabasePublishableKey || supabaseUrl.includes('placeholder') || supabasePublishableKey === 'placeholder') {
+  throw new Error('Missing Supabase configuration. Please set VITE_SUPABASE_URL and VITE_SUPABASE_PUBLISHABLE_KEY in your environment variables.')
+}
+
 export const supabase = createClient(
-  import.meta.env.VITE_SUPABASE_URL || 'https://placeholder.supabase.co',
-  import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || 'placeholder',
+  supabaseUrl,
+  supabasePublishableKey,
   {
     auth: {
       persistSession: true,
