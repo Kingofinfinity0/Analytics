@@ -109,6 +109,9 @@ function App() {
               to={`/${id}`}
               className={({ isActive }) => `nav-item ${isActive ? 'is-active' : ''} ${draggedId === id ? 'is-dragging' : ''}`}
               title={collapsed ? label : undefined}
+              aria-label={label}
+              aria-description="Press Alt with Up or Down arrow to reorder"
+              aria-keyshortcuts="Alt+ArrowUp Alt+ArrowDown"
               aria-roledescription="reorderable navigation item"
               draggable
               onDragStart={(event) => {
