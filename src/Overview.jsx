@@ -84,22 +84,22 @@ export default function Overview({ dateRange = defaultRange() }) {
   const latestSummary = data.summary.at(-1) ?? null
   const revenue = latestSummary?.running_total_cents ?? 0
   const percent = Math.min((revenue / goalCents) * 100, 100)
-  const accounts = data.accounts.map((account, index) => ({ ...account, label: account.display_name || account.handle || 'Account ' + (index + 1), color: colorFor(account.display_name || account.handle, index) }))
-  const trend = makeTrend(data.metrics, accounts, range)
-  const snapshots = makeSnapshots(data.metrics, accounts)
+  const accounts = useMemo(() => data.accounts.map((account, index) => ({ ...account, label: account.display_name || account.handle || 'Account ' + (index + 1), color: colorFor(account.display_name || account.handle, index) })), [data.accounts])
+  const trend = useMemo(() => makeTrend(data.metrics, accounts, range), [data.metrics, accounts, range])
+  const snapshots = useMemo(() => makeSnapshots(data.metrics, accounts), [data.metrics, accounts])
   const todayKey = formatDateKey(new Date())
   const viewDate = snapshots.map((account) => account.viewsDate).filter(Boolean).sort().at(-1)
   const followsDate = snapshots.map((account) => account.followsDate).filter(Boolean).sort().at(-1)
   const formatMetricDate = (date) => date === todayKey ? 'today' : date ? new Date(`${date}T00:00:00`).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) : 'no data'
   const comparisonSubtitle = `Views ${formatMetricDate(viewDate)} · New follows ${formatMetricDate(followsDate)}`
   const topPost = data.posts[0] ?? null
-  const postBenchmark = topPost ? getPostBenchmark(topPost, data.posts) : null
-  const accountViews = accounts.map((account) => ({
+  const postBenchmark = useMemo(() => (topPost ? getPostBenchmark(topPost, data.posts) : null), [topPost, data.posts])
+  const accountViews = useMemo(() => accounts.map((account) => ({
     account_id: account.account_id,
     label: account.label,
     color: account.color,
     views: data.metrics.filter((row) => row.account_id === account.account_id && row.metric_name === 'views').reduce((sum, row) => sum + finiteNumber(row.metric_value), 0),
-  })).filter((account) => account.views > 0)
+  })).filter((account) => account.views > 0), [accounts, data.metrics])
   const sales = useMemo(() => makeSalesSeries(salesData.rows, salesWindow), [salesData.rows, salesWindow])
 
   if (data.status === 'error') return <section className="overview-page"><p className="data-message">{data.error}</p></section>
@@ -226,8 +226,15 @@ function SalesRunningCard({ sales, status, selectedWindow, onWindowChange }) {
   </article>
 }
 
+// Performance Optimization: Use O(N) Hash Map lookups instead of O(A * D * N) nested array searches
 function makeTrend(metrics, accounts, range) {
-  const reach = metrics.filter((row) => row.metric_name === 'reach')
+  const reachMap = new Map()
+  for (const row of metrics) {
+    if (row.metric_name === 'reach') {
+      const key = `${row.account_id}_${row.date}`
+      if (!reachMap.has(key)) reachMap.set(key, metricValue(row))
+    }
+  }
   const dates = []
   const cursor = new Date(`${range.start}T00:00:00Z`)
   const end = new Date(`${range.end}T00:00:00Z`)
@@ -235,18 +242,43 @@ function makeTrend(metrics, accounts, range) {
     dates.push(cursor.toISOString().slice(0, 10))
     cursor.setUTCDate(cursor.getUTCDate() + 1)
   }
-  return { dates, series: accounts.map((account) => ({ ...account, data: dates.map((date) => {
-    const row = reach.find((metric) => metric.account_id === account.account_id && metric.date === date)
-    return row ? metricValue(row) : 0
-  }) })) }
+  return { dates, series: accounts.map((account) => ({ ...account, data: dates.map((date) => reachMap.get(`${account.account_id}_${date}`) ?? 0) })) }
 }
+
+// Performance Optimization: Group metrics in a single pass over date-sorted array instead of repeated array filtering and sorting
 function makeSnapshots(metrics, accounts) {
+  const sortedMetrics = [...metrics].sort((a, b) => String(b.date).localeCompare(String(a.date)))
+  const latestByAccountAndMetric = new Map()
+  const latestDateByAccount = new Map()
+
+  for (const row of sortedMetrics) {
+    const accKey = row.account_id
+    if (!latestDateByAccount.has(accKey)) latestDateByAccount.set(accKey, row.date)
+    const key = `${accKey}_${row.metric_name}`
+    if (!latestByAccountAndMetric.has(key)) latestByAccountAndMetric.set(key, row)
+  }
+
   return accounts.map((account) => {
-    const rows = metrics.filter((row) => row.account_id === account.account_id)
-    const latestFor = (name) => rows.filter((row) => row.metric_name === name).sort((a, b) => String(b.date).localeCompare(String(a.date)))[0]
-    const read = (name) => { const row = latestFor(name); return { value: finiteNumber(row?.metric_value), date: row?.date ?? null } }
-    const latest = rows.map((row) => row.date).sort().at(-1)
-    return { ...account, metricDate: latest, reach: metricValue(latestFor('reach')), followers: read('follower_count').value, following: read('follows_count').value, views: read('views').value, follows: read('new_follows').value, viewsDate: read('views').date, followsDate: read('new_follows').date, newFollowers: read('new_follows').value }
+    const getMetric = (name) => latestByAccountAndMetric.get(`${account.account_id}_${name}`)
+    const read = (name) => {
+      const row = getMetric(name)
+      return { value: finiteNumber(row?.metric_value), date: row?.date ?? null }
+    }
+    const reachRow = getMetric('reach')
+    const views = read('views')
+    const follows = read('new_follows')
+    return {
+      ...account,
+      metricDate: latestDateByAccount.get(account.account_id) ?? null,
+      reach: metricValue(reachRow),
+      followers: read('follower_count').value,
+      following: read('follows_count').value,
+      views: views.value,
+      follows: follows.value,
+      viewsDate: views.date,
+      followsDate: follows.date,
+      newFollowers: follows.value,
+    }
   })
 }
 function makeSalesSeries(summary, selectedWindow) {
