@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { supabase } from './supabase'
 
 const fallbacks = {
@@ -34,13 +34,12 @@ export default function Analytics() {
   const [rows, setRows] = useState([])
   const [status, setStatus] = useState('loading')
   const [error, setError] = useState('')
+  const lastFetchedKeyRef = useRef(null)
 
   useEffect(() => {
     let cancelled = false
 
     async function loadAnalytics() {
-      setStatus('loading')
-      setError('')
       try {
         const isInstagram = platform === 'instagram'
         const fieldsRequest = supabase.from('field_selections').select('field_name, display_as, display_order').eq('platform', platform).order('display_order')
@@ -55,6 +54,16 @@ export default function Analytics() {
         const availableAccounts = accountsResult.data ?? []
         setAccounts(availableAccounts)
         const activeAccountId = isInstagram ? (accountId ?? availableAccounts[0]?.account_id ?? null) : null
+
+        // Performance Optimization: Cache fetch key (platform + targetDate + activeAccountId) to skip redundant double-fetch
+        // when accountId state updates from null to default account on initial mount or platform switch.
+        const fetchKey = `${platform}:${targetDate}:${activeAccountId}`
+        if (lastFetchedKeyRef.current === fetchKey && status === 'ready') return
+        lastFetchedKeyRef.current = fetchKey
+
+        setStatus('loading')
+        setError('')
+
         if (isInstagram && activeAccountId !== accountId) {
           setAccountId(activeAccountId)
           if (!activeAccountId) {
@@ -62,8 +71,8 @@ export default function Analytics() {
             setColumns(fallbacks.instagram)
             setRows([])
             setStatus('ready')
+            return
           }
-          return
         }
 
         const fields = fieldsResult.data ?? []
@@ -114,6 +123,7 @@ export default function Analytics() {
         }
       } catch (loadError) {
         if (!cancelled) {
+          lastFetchedKeyRef.current = null
           setError(loadError.message || 'Could not load analytics.')
           setStatus('error')
         }
