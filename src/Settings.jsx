@@ -1,7 +1,13 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { supabase } from './supabase'
 
-const mcpUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/mcp_server`
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
+
+if (!supabaseUrl) {
+  throw new Error('Missing Supabase configuration. VITE_SUPABASE_URL environment variable must be defined.')
+}
+
+const mcpUrl = `${supabaseUrl}/functions/v1/mcp_server`
 const claudeUrl = (() => {
   const url = new URL('https://claude.ai/new')
   url.searchParams.set('modal', 'add-custom-connector')
@@ -10,7 +16,7 @@ const claudeUrl = (() => {
   url.hash = 'settings/customize-connectors'
   return url.toString()
 })()
-const oauthUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/instagram_oauth_start`
+const oauthUrl = `${supabaseUrl}/functions/v1/instagram_oauth_start`
 
 function formatDate(value) {
   if (!value) return '—'
