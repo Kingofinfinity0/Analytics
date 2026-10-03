@@ -62,24 +62,24 @@ export default function Overview({ dateRange = defaultRange() }) {
     }
   }, [])
 
+  // Performance Optimization: Fetch daily summary once on page mount or refresh key update.
+  // Avoids re-querying Supabase every time user switches timeframe tabs (Week/Month/Year).
   useEffect(() => {
     let cancelled = false
     async function loadSales() {
       setSalesData({ status: 'loading', rows: [] })
       try {
-        let query = supabase.from('gumroad_daily_summary').select('date,running_total_cents')
-        query = query.order('date', { ascending: true })
+        const query = supabase.from('gumroad_daily_summary').select('date,running_total_cents').order('date', { ascending: true })
         const result = await query
         if (result.error) throw result.error
-        const rows = salesWindow === 'max' ? result.data ?? [] : [...(result.data ?? [])].reverse()
-        if (!cancelled) setSalesData({ status: 'ready', rows })
+        if (!cancelled) setSalesData({ status: 'ready', rows: result.data ?? [] })
       } catch (error) {
         if (!cancelled) setSalesData({ status: 'error', rows: [], error: error.message })
       }
     }
     loadSales()
     return () => { cancelled = true }
-  }, [salesWindow, reloadKey])
+  }, [reloadKey])
 
   const latestSummary = data.summary.at(-1) ?? null
   const revenue = latestSummary?.running_total_cents ?? 0
@@ -87,6 +87,13 @@ export default function Overview({ dateRange = defaultRange() }) {
   const accounts = useMemo(() => data.accounts.map((account, index) => ({ ...account, label: account.display_name || account.handle || 'Account ' + (index + 1), color: colorFor(account.display_name || account.handle, index) })), [data.accounts])
   const trend = useMemo(() => makeTrend(data.metrics, accounts, range), [data.metrics, accounts, range])
   const snapshots = useMemo(() => makeSnapshots(data.metrics, accounts), [data.metrics, accounts])
+
+  // Performance Optimization: Memoize chart options to prevent costly option object re-creation
+  // and chart re-evaluations during unrelated component state updates.
+  const gaugeOpt = useMemo(() => gaugeOption(percent), [percent])
+  const trendOpt = useMemo(() => trendOption(trend), [trend])
+  const comparisonOpt = useMemo(() => comparisonOption(snapshots), [snapshots])
+
   const todayKey = formatDateKey(new Date())
   const viewDate = snapshots.map((account) => account.viewsDate).filter(Boolean).sort().at(-1)
   const followsDate = snapshots.map((account) => account.followsDate).filter(Boolean).sort().at(-1)
@@ -94,25 +101,38 @@ export default function Overview({ dateRange = defaultRange() }) {
   const comparisonSubtitle = `Views ${formatMetricDate(viewDate)} · New follows ${formatMetricDate(followsDate)}`
   const topPost = data.posts[0] ?? null
   const postBenchmark = useMemo(() => (topPost ? getPostBenchmark(topPost, data.posts) : null), [topPost, data.posts])
-  const accountViews = useMemo(() => accounts.map((account) => ({
-    account_id: account.account_id,
-    label: account.label,
-    color: account.color,
-    views: data.metrics.filter((row) => row.account_id === account.account_id && row.metric_name === 'views').reduce((sum, row) => sum + finiteNumber(row.metric_value), 0),
-  })).filter((account) => account.views > 0), [accounts, data.metrics])
+
+  // Performance Optimization: Sum views per account in a single O(M) pass over metrics
+  // instead of O(A * M) repeated filtering and reducing.
+  const accountViews = useMemo(() => {
+    const viewsByAccount = new Map()
+    for (const row of data.metrics) {
+      if (row.metric_name === 'views') {
+        const val = finiteNumber(row.metric_value)
+        if (val) viewsByAccount.set(row.account_id, (viewsByAccount.get(row.account_id) || 0) + val)
+      }
+    }
+    return accounts.map((account) => ({
+      account_id: account.account_id,
+      label: account.label,
+      color: account.color,
+      views: viewsByAccount.get(account.account_id) || 0,
+    })).filter((account) => account.views > 0)
+  }, [accounts, data.metrics])
+
   const sales = useMemo(() => makeSalesSeries(salesData.rows, salesWindow), [salesData.rows, salesWindow])
 
   if (data.status === 'error') return <section className="overview-page"><p className="data-message">{data.error}</p></section>
   return <section className="overview-page overview-page--new" aria-label="Overview">
     <div className="overview-grid overview-grid--priority">
       <SankeyCard {...data.sankey} accountViews={accountViews} onRetry={() => setReloadKey((key) => key + 1)} />
-      <article className="overview-card goal-card"><CardTitle title="Revenue goal" subtitle={money(Math.max(goalCents - revenue, 0)) + ' remaining of ' + money(goalCents)} /><Chart className="overview-chart overview-chart--gauge" option={gaugeOption(percent)} /><strong className="goal-amount">{money(revenue)}</strong></article>
-      <article className="overview-card trend-card"><CardTitle title="Daily reach" subtitle="Reach by connected account" /><Chart className="overview-chart overview-chart--trend" option={trendOption(trend)} /></article>
+      <article className="overview-card goal-card"><CardTitle title="Revenue goal" subtitle={money(Math.max(goalCents - revenue, 0)) + ' remaining of ' + money(goalCents)} /><Chart className="overview-chart overview-chart--gauge" option={gaugeOpt} /><strong className="goal-amount">{money(revenue)}</strong></article>
+      <article className="overview-card trend-card"><CardTitle title="Daily reach" subtitle="Reach by connected account" /><Chart className="overview-chart overview-chart--trend" option={trendOpt} /></article>
     </div>
     <div className="overview-grid overview-grid--summary">
       <SalesRunningCard sales={sales} status={salesData.status} selectedWindow={salesWindow} onWindowChange={setSalesWindow} />
       {topPost ? <PostInsightsCard post={topPost} benchmark={postBenchmark} /> : <article className="overview-card top-post"><PostCardEmpty /></article>}
-      <article className="overview-card comparison-card"><CardTitle title="Account comparison" subtitle={comparisonSubtitle} /><Chart className="overview-chart overview-chart--bar" option={comparisonOption(snapshots)} /></article>
+      <article className="overview-card comparison-card"><CardTitle title="Account comparison" subtitle={comparisonSubtitle} /><Chart className="overview-chart overview-chart--bar" option={comparisonOpt} /></article>
     </div>
   </section>
 }
