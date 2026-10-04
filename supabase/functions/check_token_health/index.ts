@@ -18,7 +18,10 @@ Deno.serve(async (req: Request) => {
   }
 
   for (const conn of connections) {
-    const res = await fetch(`https://graph.instagram.com/v25.0/${conn.external_id}?fields=id,username&access_token=${conn.access_token}`)
+    // Security: Send access token in Authorization header to prevent token leakage in URL logs
+    const res = await fetch(`https://graph.instagram.com/v25.0/${conn.external_id}?fields=id,username`, {
+      headers: { Authorization: `Bearer ${conn.access_token}` },
+    })
     const json = await res.json()
 
     if ("error" in json) {
