@@ -31,11 +31,17 @@ Deno.serve(async (req: Request) => {
   const form = new URLSearchParams({ client_id: clientId, client_secret: clientSecret, grant_type: "authorization_code", redirect_uri: redirectUri, code })
   const shortRes = await fetch("https://api.instagram.com/oauth/access_token", { method: "POST", body: form })
   const shortJson = await shortRes.json()
-  if (!shortJson.access_token) return new Response(html(`Could not get a short-lived token: ${JSON.stringify(shortJson)}`), { status: 400, headers: { "Content-Type": "text/html" } })
+  if (!shortJson.access_token) {
+    const errorMsg = shortJson.error_message || shortJson.error?.message || "OAuth token exchange failed."
+    return new Response(html(`Could not get a short-lived token: ${errorMsg}`), { status: 400, headers: { "Content-Type": "text/html" } })
+  }
 
   const longRes = await fetch(`https://graph.instagram.com/access_token?grant_type=ig_exchange_token&client_secret=${clientSecret}&access_token=${shortJson.access_token}`)
   const longJson = await longRes.json()
-  if (!longJson.access_token) return new Response(html(`Could not get a long-lived token: ${JSON.stringify(longJson)}`), { status: 400, headers: { "Content-Type": "text/html" } })
+  if (!longJson.access_token) {
+    const errorMsg = longJson.error_message || longJson.error?.message || "OAuth long-lived token exchange failed."
+    return new Response(html(`Could not get a long-lived token: ${errorMsg}`), { status: 400, headers: { "Content-Type": "text/html" } })
+  }
 
   const token = longJson.access_token
   const profileUrl = new URL("https://graph.instagram.com/v25.0/me")

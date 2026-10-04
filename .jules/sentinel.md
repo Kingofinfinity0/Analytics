@@ -1,0 +1,4 @@
+## 2026-03-30 - Prevent Raw OAuth Response Payload Leaks in User Error Pages
+**Vulnerability:** OAuth error handling in `instagram_oauth_callback` dumped full JSON API response payloads (`JSON.stringify(shortJson)` and `JSON.stringify(longJson)`) into HTML error responses rendered directly to end users.
+**Learning:** During OAuth token exchanges, failed response payloads can contain partial credential information, application secrets, internal server fields, or sensitive error metadata. Returning `JSON.stringify(...)` in public HTML responses leaks internal system state and sensitive OAuth details.
+**Prevention:** Extract specific, sanitized error messages (e.g. `json.error_message || json.error?.message`) or return generic failure descriptions instead of stringifying complete API response bodies in web endpoints.
