@@ -281,6 +281,7 @@ function makeSnapshots(metrics, accounts) {
     }
   })
 }
+// Performance Optimization: Single-pass linear scan O(N + D) over sorted dates instead of O(N * D) nested array searches
 function makeSalesSeries(summary, selectedWindow) {
   const records = new Map(summary.map((row) => [row.date, Number(row.running_total_cents ?? 0) / 100]))
   const now = new Date()
@@ -300,15 +301,19 @@ function makeSalesSeries(summary, selectedWindow) {
 
   let carry = 0
   const allDates = [...records.keys()].sort()
-  for (const date of allDates) {
-    if (date < formatDateKey(dates[0])) carry = records.get(date)
-    else break
+  let recordedIdx = 0
+  const firstKey = formatDateKey(dates[0])
+
+  while (recordedIdx < allDates.length && allDates[recordedIdx] < firstKey) {
+    carry = records.get(allDates[recordedIdx])
+    recordedIdx++
   }
+
   const points = dates.map((date) => {
     const key = formatDateKey(date)
-    for (const recordedDate of allDates) {
-      if (recordedDate > key) break
-      carry = records.get(recordedDate)
+    while (recordedIdx < allDates.length && allDates[recordedIdx] <= key) {
+      carry = records.get(allDates[recordedIdx])
+      recordedIdx++
     }
     return {
       date: key,
