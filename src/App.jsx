@@ -1,10 +1,14 @@
-import React, { useEffect, useState } from 'react'
+import React, { Suspense, lazy, useEffect, useState } from 'react'
 import { NavLink, Navigate, Route, Routes } from 'react-router-dom'
-import Analytics from './Analytics'
-import Overview from './Overview'
-import Settings from './Settings'
-import Auth from './Auth'
 import { restoreSession, supabase } from './supabase'
+
+// Performance Optimization: Use React.lazy for route-based code splitting.
+// This defers loading heavy components like Overview (and ECharts) until requested,
+// reducing initial bundle size and improving initial page load time.
+const Analytics = lazy(() => import('./Analytics'))
+const Overview = lazy(() => import('./Overview'))
+const Settings = lazy(() => import('./Settings'))
+const Auth = lazy(() => import('./Auth'))
 
 const topItems = [
   { id: 'overview', label: 'Overview', icon: OverviewIcon },
@@ -82,7 +86,17 @@ function App() {
   }
 
   if (session === undefined) return null
-  if (!session) return <Routes><Route path="/signup" element={<Auth />} /><Route path="*" element={<Navigate to="/login" replace />} /><Route path="/login" element={<Auth />} /></Routes>
+  if (!session) {
+    return (
+      <Suspense fallback={null}>
+        <Routes>
+          <Route path="/signup" element={<Auth />} />
+          <Route path="*" element={<Navigate to="/login" replace />} />
+          <Route path="/login" element={<Auth />} />
+        </Routes>
+      </Suspense>
+    )
+  }
 
   return (
     <div className={`app-shell ${collapsed ? 'is-collapsed' : ''}`}>
@@ -161,13 +175,15 @@ function App() {
       </aside>
 
       <main className="main-content">
-        <Routes>
-          <Route path="/overview" element={<Overview />} />
-          <Route path="/analytics" element={<Analytics />} />
-          <Route path="/canvas" element={<Page title="Canvas" />} />
-          <Route path="/settings" element={<Settings />} />
-          <Route path="*" element={<Navigate to="/overview" replace />} />
-        </Routes>
+        <Suspense fallback={null}>
+          <Routes>
+            <Route path="/overview" element={<Overview />} />
+            <Route path="/analytics" element={<Analytics />} />
+            <Route path="/canvas" element={<Page title="Canvas" />} />
+            <Route path="/settings" element={<Settings />} />
+            <Route path="*" element={<Navigate to="/overview" replace />} />
+          </Routes>
+        </Suspense>
       </main>
     </div>
   )
