@@ -18,12 +18,16 @@ Deno.serve(async (req: Request) => {
   }
 
   for (const conn of connections) {
-    const res = await fetch(`https://graph.instagram.com/v25.0/${conn.external_id}?fields=id,username&access_token=${conn.access_token}`)
+    // Pass access_token in Authorization header to avoid exposing secrets in URL logs
+    const res = await fetch(`https://graph.instagram.com/v25.0/${conn.external_id}?fields=id,username`, {
+      headers: { Authorization: `Bearer ${conn.access_token}` },
+    })
     const json = await res.json()
 
     if ("error" in json) {
-      await supabase.rpc("log_connection_error", { p_connection_id: conn.connection_id, p_raw_error: json.error.message })
-      results[conn.connection_id] = `failed: ${json.error.message}`
+      const errorMsg = json.error?.message ?? "Unknown Instagram API error"
+      await supabase.rpc("log_connection_error", { p_connection_id: conn.connection_id, p_raw_error: errorMsg })
+      results[conn.connection_id] = `failed: ${errorMsg}`
     } else {
       results[conn.connection_id] = "ok"
     }
