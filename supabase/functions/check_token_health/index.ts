@@ -14,11 +14,14 @@ Deno.serve(async (req: Request) => {
 
   const { data: connections, error: connErr } = await supabase.rpc("get_active_connections", { p_platform: "instagram", p_internal_secret: internalSecret })
   if (connErr || !connections) {
-    return new Response(JSON.stringify({ status: "error", message: connErr?.message }), { status: 500 })
+    return new Response(JSON.stringify({ status: "error", message: connErr?.message }), { status: 500, headers: { "Content-Type": "application/json" } })
   }
 
   for (const conn of connections) {
-    const res = await fetch(`https://graph.instagram.com/v25.0/${conn.external_id}?fields=id,username&access_token=${conn.access_token}`)
+    // Pass access_token in Authorization header so sensitive credentials do not end up in URL access logs.
+    const res = await fetch(`https://graph.instagram.com/v25.0/${conn.external_id}?fields=id,username`, {
+      headers: { Authorization: `Bearer ${conn.access_token}`, Accept: "application/json" },
+    })
     const json = await res.json()
 
     if ("error" in json) {
