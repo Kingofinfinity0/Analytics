@@ -236,11 +236,13 @@ function makeTrend(metrics, accounts, range) {
     }
   }
   const dates = []
-  const cursor = new Date(`${range.start}T00:00:00Z`)
-  const end = new Date(`${range.end}T00:00:00Z`)
+  const [sYear, sMonth, sDay] = range.start.split('-').map(Number)
+  const [eYear, eMonth, eDay] = range.end.split('-').map(Number)
+  const cursor = new Date(sYear, sMonth - 1, sDay)
+  const end = new Date(eYear, eMonth - 1, eDay)
   while (cursor <= end) {
-    dates.push(cursor.toISOString().slice(0, 10))
-    cursor.setUTCDate(cursor.getUTCDate() + 1)
+    dates.push(formatDateKey(cursor))
+    cursor.setDate(cursor.getDate() + 1)
   }
   return { dates, series: accounts.map((account) => ({ ...account, data: dates.map((date) => reachMap.get(`${account.account_id}_${date}`) ?? 0) })) }
 }
