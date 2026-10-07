@@ -71,8 +71,9 @@ export default function Analytics() {
         const selectedColumns = fields.filter((field) => field.display_as === 'column').map((field) => field.field_name)
         const table = isInstagram ? 'instagram_posts' : 'gumroad_sales'
         const dateColumn = isInstagram ? 'posted_at' : 'created_at'
-        const startOfDay = `${targetDate}T00:00:00Z`
-        const endOfDay = `${targetDate}T23:59:59.999Z`
+        const [year, month, day] = targetDate.split('-').map(Number)
+        const startOfDay = new Date(year, month - 1, day, 0, 0, 0, 0).toISOString()
+        const endOfDay = new Date(year, month - 1, day, 23, 59, 59, 999).toISOString()
 
         let tableQuery = supabase
           .from(table)
