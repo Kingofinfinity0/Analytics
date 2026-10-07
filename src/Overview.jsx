@@ -94,25 +94,41 @@ export default function Overview({ dateRange = defaultRange() }) {
   const comparisonSubtitle = `Views ${formatMetricDate(viewDate)} · New follows ${formatMetricDate(followsDate)}`
   const topPost = data.posts[0] ?? null
   const postBenchmark = useMemo(() => (topPost ? getPostBenchmark(topPost, data.posts) : null), [topPost, data.posts])
-  const accountViews = useMemo(() => accounts.map((account) => ({
-    account_id: account.account_id,
-    label: account.label,
-    color: account.color,
-    views: data.metrics.filter((row) => row.account_id === account.account_id && row.metric_name === 'views').reduce((sum, row) => sum + finiteNumber(row.metric_value), 0),
-  })).filter((account) => account.views > 0), [accounts, data.metrics])
+  // Performance Optimization: Sum metric views in a single pass O(M) using a Map instead of O(A * M) nested filter-reduces
+  const accountViews = useMemo(() => {
+    const viewsByAccount = new Map()
+    for (const row of data.metrics) {
+      if (row.metric_name === 'views') {
+        const val = finiteNumber(row.metric_value) ?? 0
+        viewsByAccount.set(row.account_id, (viewsByAccount.get(row.account_id) ?? 0) + val)
+      }
+    }
+    return accounts.map((account) => ({
+      account_id: account.account_id,
+      label: account.label,
+      color: account.color,
+      views: viewsByAccount.get(account.account_id) ?? 0,
+    })).filter((account) => account.views > 0)
+  }, [accounts, data.metrics])
+
   const sales = useMemo(() => makeSalesSeries(salesData.rows, salesWindow), [salesData.rows, salesWindow])
+
+  // Performance Optimization: Memoize chart option objects to prevent recreating configuration objects and triggering ECharts updates on every re-render
+  const gaugeChartOption = useMemo(() => gaugeOption(percent), [percent])
+  const trendChartOption = useMemo(() => trendOption(trend), [trend])
+  const comparisonChartOption = useMemo(() => comparisonOption(snapshots), [snapshots])
 
   if (data.status === 'error') return <section className="overview-page"><p className="data-message">{data.error}</p></section>
   return <section className="overview-page overview-page--new" aria-label="Overview">
     <div className="overview-grid overview-grid--priority">
       <SankeyCard {...data.sankey} accountViews={accountViews} onRetry={() => setReloadKey((key) => key + 1)} />
-      <article className="overview-card goal-card"><CardTitle title="Revenue goal" subtitle={money(Math.max(goalCents - revenue, 0)) + ' remaining of ' + money(goalCents)} /><Chart className="overview-chart overview-chart--gauge" option={gaugeOption(percent)} /><strong className="goal-amount">{money(revenue)}</strong></article>
-      <article className="overview-card trend-card"><CardTitle title="Daily reach" subtitle="Reach by connected account" /><Chart className="overview-chart overview-chart--trend" option={trendOption(trend)} /></article>
+      <article className="overview-card goal-card"><CardTitle title="Revenue goal" subtitle={money(Math.max(goalCents - revenue, 0)) + ' remaining of ' + money(goalCents)} /><Chart className="overview-chart overview-chart--gauge" option={gaugeChartOption} /><strong className="goal-amount">{money(revenue)}</strong></article>
+      <article className="overview-card trend-card"><CardTitle title="Daily reach" subtitle="Reach by connected account" /><Chart className="overview-chart overview-chart--trend" option={trendChartOption} /></article>
     </div>
     <div className="overview-grid overview-grid--summary">
       <SalesRunningCard sales={sales} status={salesData.status} selectedWindow={salesWindow} onWindowChange={setSalesWindow} />
       {topPost ? <PostInsightsCard post={topPost} benchmark={postBenchmark} /> : <article className="overview-card top-post"><PostCardEmpty /></article>}
-      <article className="overview-card comparison-card"><CardTitle title="Account comparison" subtitle={comparisonSubtitle} /><Chart className="overview-chart overview-chart--bar" option={comparisonOption(snapshots)} /></article>
+      <article className="overview-card comparison-card"><CardTitle title="Account comparison" subtitle={comparisonSubtitle} /><Chart className="overview-chart overview-chart--bar" option={comparisonChartOption} /></article>
     </div>
   </section>
 }
