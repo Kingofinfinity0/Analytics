@@ -25,7 +25,6 @@ function colorFor(handle, index) {
 
 export default function Overview({ dateRange = defaultRange() }) {
   const [data, setData] = useState({ status: 'loading', summary: [], sankey: { status: 'loading' }, posts: [], accounts: [], metrics: [] })
-  const [salesData, setSalesData] = useState({ status: 'loading', rows: [] })
   const [reloadKey, setReloadKey] = useState(0)
   const [salesWindow, setSalesWindow] = useState('month')
   const range = useMemo(() => ({ start: dateRange.start, end: dateRange.end }), [dateRange.start, dateRange.end])
@@ -62,25 +61,6 @@ export default function Overview({ dateRange = defaultRange() }) {
     }
   }, [])
 
-  useEffect(() => {
-    let cancelled = false
-    async function loadSales() {
-      setSalesData({ status: 'loading', rows: [] })
-      try {
-        let query = supabase.from('gumroad_daily_summary').select('date,running_total_cents')
-        query = query.order('date', { ascending: true })
-        const result = await query
-        if (result.error) throw result.error
-        const rows = salesWindow === 'max' ? result.data ?? [] : [...(result.data ?? [])].reverse()
-        if (!cancelled) setSalesData({ status: 'ready', rows })
-      } catch (error) {
-        if (!cancelled) setSalesData({ status: 'error', rows: [], error: error.message })
-      }
-    }
-    loadSales()
-    return () => { cancelled = true }
-  }, [salesWindow, reloadKey])
-
   const latestSummary = data.summary.at(-1) ?? null
   const revenue = latestSummary?.running_total_cents ?? 0
   const percent = Math.min((revenue / goalCents) * 100, 100)
@@ -100,7 +80,8 @@ export default function Overview({ dateRange = defaultRange() }) {
     color: account.color,
     views: data.metrics.filter((row) => row.account_id === account.account_id && row.metric_name === 'views').reduce((sum, row) => sum + finiteNumber(row.metric_value), 0),
   })).filter((account) => account.views > 0), [accounts, data.metrics])
-  const sales = useMemo(() => makeSalesSeries(salesData.rows, salesWindow), [salesData.rows, salesWindow])
+  // Performance Optimization: Derive sales series directly from data.summary to eliminate duplicate API requests on mount and avoid loading flashes on timeframe tab switches
+  const sales = useMemo(() => makeSalesSeries(data.summary, salesWindow), [data.summary, salesWindow])
 
   if (data.status === 'error') return <section className="overview-page"><p className="data-message">{data.error}</p></section>
   return <section className="overview-page overview-page--new" aria-label="Overview">
@@ -110,7 +91,7 @@ export default function Overview({ dateRange = defaultRange() }) {
       <article className="overview-card trend-card"><CardTitle title="Daily reach" subtitle="Reach by connected account" /><Chart className="overview-chart overview-chart--trend" option={trendOption(trend)} /></article>
     </div>
     <div className="overview-grid overview-grid--summary">
-      <SalesRunningCard sales={sales} status={salesData.status} selectedWindow={salesWindow} onWindowChange={setSalesWindow} />
+      <SalesRunningCard sales={sales} status={data.status} selectedWindow={salesWindow} onWindowChange={setSalesWindow} />
       {topPost ? <PostInsightsCard post={topPost} benchmark={postBenchmark} /> : <article className="overview-card top-post"><PostCardEmpty /></article>}
       <article className="overview-card comparison-card"><CardTitle title="Account comparison" subtitle={comparisonSubtitle} /><Chart className="overview-chart overview-chart--bar" option={comparisonOption(snapshots)} /></article>
     </div>
