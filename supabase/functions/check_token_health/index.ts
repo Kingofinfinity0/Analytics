@@ -18,12 +18,23 @@ Deno.serve(async (req: Request) => {
   }
 
   for (const conn of connections) {
-    const res = await fetch(`https://graph.instagram.com/v25.0/${conn.external_id}?fields=id,username&access_token=${conn.access_token}`)
-    const json = await res.json()
+    const url = new URL(`https://graph.instagram.com/v25.0/${encodeURIComponent(conn.external_id)}`)
+    url.searchParams.set("fields", "id,username")
+    let json: any = {}
+    try {
+      // Pass token in Authorization header so it does not leak into HTTP URL logs
+      const res = await fetch(url, {
+        headers: { Authorization: `Bearer ${conn.access_token}`, Accept: "application/json" },
+      })
+      json = await res.json()
+    } catch {
+      json = { error: { message: "Non-JSON or network error during token health check" } }
+    }
 
     if ("error" in json) {
-      await supabase.rpc("log_connection_error", { p_connection_id: conn.connection_id, p_raw_error: json.error.message })
-      results[conn.connection_id] = `failed: ${json.error.message}`
+      const errorMsg = json.error?.message ?? "Token health check failed"
+      await supabase.rpc("log_connection_error", { p_connection_id: conn.connection_id, p_raw_error: errorMsg })
+      results[conn.connection_id] = `failed: ${errorMsg}`
     } else {
       results[conn.connection_id] = "ok"
     }
