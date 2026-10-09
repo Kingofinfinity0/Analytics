@@ -18,7 +18,13 @@ Deno.serve(async (req: Request) => {
   }
 
   for (const conn of connections) {
-    const res = await fetch(`https://graph.instagram.com/v25.0/${conn.external_id}?fields=id,username&access_token=${conn.access_token}`)
+    // Pass access token in Authorization header rather than URL search params
+    // to prevent credential exposure in HTTP request logs and proxies.
+    const url = new URL(`https://graph.instagram.com/v25.0/${conn.external_id}`)
+    url.searchParams.set("fields", "id,username")
+    const res = await fetch(url, {
+      headers: { Authorization: `Bearer ${conn.access_token}` },
+    })
     const json = await res.json()
 
     if ("error" in json) {
