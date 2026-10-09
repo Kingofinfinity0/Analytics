@@ -12,10 +12,13 @@ const claudeUrl = (() => {
 })()
 const oauthUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/instagram_oauth_start`
 
+// Performance Optimization: Cache module-scoped Intl.DateTimeFormat instance to avoid repeated constructor instantiation
+const dateTimeFormatter = new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' })
+
 function formatDate(value) {
   if (!value) return '—'
   const date = new Date(value)
-  return Number.isNaN(date.getTime()) ? value : new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' }).format(date)
+  return Number.isNaN(date.getTime()) ? value : dateTimeFormatter.format(date)
 }
 
 function SettingsCard({ title, action, children, className = '' }) {
