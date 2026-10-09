@@ -15,10 +15,14 @@ function labelFor(value) {
   return value.replaceAll('_', ' ').replace(/\b\w/g, (letter) => letter.toUpperCase())
 }
 
+// Performance Optimization: Cache module-scoped Intl.NumberFormat instances for table cell formatting
+const currencyFormatter = new Intl.NumberFormat(undefined, { style: 'currency', currency: 'USD' })
+const numberFormatter = new Intl.NumberFormat()
+
 function formatValue(value, field = '') {
   if (value === null || value === undefined || value === '') return '—'
-  if (field.includes('cents')) return new Intl.NumberFormat(undefined, { style: 'currency', currency: 'USD' }).format(Number(value) / 100)
-  if (typeof value === 'number') return new Intl.NumberFormat().format(value)
+  if (field.includes('cents')) return currencyFormatter.format(Number(value) / 100)
+  if (typeof value === 'number') return numberFormatter.format(value)
   if (field.endsWith('_at') || field === 'created_at') return new Date(value).toLocaleDateString()
   if (typeof value === 'boolean') return value ? 'Yes' : 'No'
   return String(value)
