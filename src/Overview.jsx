@@ -94,12 +94,25 @@ export default function Overview({ dateRange = defaultRange() }) {
   const comparisonSubtitle = `Views ${formatMetricDate(viewDate)} · New follows ${formatMetricDate(followsDate)}`
   const topPost = data.posts[0] ?? null
   const postBenchmark = useMemo(() => (topPost ? getPostBenchmark(topPost, data.posts) : null), [topPost, data.posts])
-  const accountViews = useMemo(() => accounts.map((account) => ({
-    account_id: account.account_id,
-    label: account.label,
-    color: account.color,
-    views: data.metrics.filter((row) => row.account_id === account.account_id && row.metric_name === 'views').reduce((sum, row) => sum + finiteNumber(row.metric_value), 0),
-  })).filter((account) => account.views > 0), [accounts, data.metrics])
+  // Performance Optimization: Compute total views per account_id in a single pass O(N) using a Map
+  // instead of nested O(A * N) filtering and reducing metrics array for each account instance.
+  const accountViews = useMemo(() => {
+    const viewsByAccount = new Map()
+    for (const row of data.metrics) {
+      if (row.metric_name === 'views') {
+        const current = viewsByAccount.get(row.account_id) || 0
+        viewsByAccount.set(row.account_id, current + (finiteNumber(row.metric_value) ?? 0))
+      }
+    }
+    return accounts
+      .map((account) => ({
+        account_id: account.account_id,
+        label: account.label,
+        color: account.color,
+        views: viewsByAccount.get(account.account_id) || 0,
+      }))
+      .filter((account) => account.views > 0)
+  }, [accounts, data.metrics])
   const sales = useMemo(() => makeSalesSeries(salesData.rows, salesWindow), [salesData.rows, salesWindow])
 
   if (data.status === 'error') return <section className="overview-page"><p className="data-message">{data.error}</p></section>
