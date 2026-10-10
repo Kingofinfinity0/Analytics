@@ -14,16 +14,23 @@ Deno.serve(async (req: Request) => {
 
   const { data: connections, error: connErr } = await supabase.rpc("get_active_connections", { p_platform: "instagram", p_internal_secret: internalSecret })
   if (connErr || !connections) {
-    return new Response(JSON.stringify({ status: "error", message: connErr?.message }), { status: 500 })
+    if (connErr?.message?.includes("invalid internal secret")) {
+      return new Response("Unauthorized", { status: 401 })
+    }
+    return new Response(JSON.stringify({ status: "error", message: "Failed to fetch active connections" }), { status: 500 })
   }
 
   for (const conn of connections) {
-    const res = await fetch(`https://graph.instagram.com/v25.0/${conn.external_id}?fields=id,username&access_token=${conn.access_token}`)
+    // Use Authorization header so access tokens do not end up in URL logs
+    const res = await fetch(`https://graph.instagram.com/v25.0/${conn.external_id}?fields=id,username`, {
+      headers: { Authorization: `Bearer ${conn.access_token}` },
+    })
     const json = await res.json()
 
     if ("error" in json) {
-      await supabase.rpc("log_connection_error", { p_connection_id: conn.connection_id, p_raw_error: json.error.message })
-      results[conn.connection_id] = `failed: ${json.error.message}`
+      const errMsg = json.error?.message ?? "Token health check failed"
+      await supabase.rpc("log_connection_error", { p_connection_id: conn.connection_id, p_raw_error: errMsg })
+      results[conn.connection_id] = `failed: ${errMsg}`
     } else {
       results[conn.connection_id] = "ok"
     }
