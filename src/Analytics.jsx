@@ -11,6 +11,19 @@ function today() {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
 }
 
+function getLocalDayBounds(targetDate) {
+  const [year, month, day] = targetDate.split('-').map(Number)
+  const startOfDay = new Date(year, month - 1, day, 0, 0, 0, 0).toISOString()
+  const endOfDay = new Date(year, month - 1, day, 23, 59, 59, 999).toISOString()
+  return { startOfDay, endOfDay }
+}
+
+function formatTargetDate(targetDate) {
+  if (!targetDate) return ''
+  const [year, month, day] = targetDate.split('-').map(Number)
+  return new Date(year, month - 1, day).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })
+}
+
 function labelFor(value) {
   return value.replaceAll('_', ' ').replace(/\b\w/g, (letter) => letter.toUpperCase())
 }
@@ -22,6 +35,11 @@ function formatValue(value, field = '') {
   if (field.endsWith('_at') || field === 'created_at') return new Date(value).toLocaleDateString()
   if (typeof value === 'boolean') return value ? 'Yes' : 'No'
   return String(value)
+}
+
+function isSalesField(field) {
+  const f = String(field || '').toLowerCase()
+  return f.includes('price') || f.includes('revenue') || f.includes('sales') || f.includes('cents') || f.includes('amount')
 }
 
 export default function Analytics() {
@@ -71,8 +89,7 @@ export default function Analytics() {
         const selectedColumns = fields.filter((field) => field.display_as === 'column').map((field) => field.field_name)
         const table = isInstagram ? 'instagram_posts' : 'gumroad_sales'
         const dateColumn = isInstagram ? 'posted_at' : 'created_at'
-        const startOfDay = `${targetDate}T00:00:00Z`
-        const endOfDay = `${targetDate}T23:59:59.999Z`
+        const { startOfDay, endOfDay } = getLocalDayBounds(targetDate)
 
         let tableQuery = supabase
           .from(table)
@@ -142,7 +159,7 @@ export default function Analytics() {
       </header>
 
       {platform === 'instagram' && accounts.length > 0 && <div className="profile-switcher" aria-label="Instagram profile">
-        {accounts.map((account) => <button key={account.account_id} type="button" className={accountId === account.account_id ? 'is-selected' : ''} onClick={() => setAccountId(account.account_id)}>{account.display_name || account.handle}</button>)}
+        {accounts.map((account) => <button key={account.account_id} type="button" aria-pressed={accountId === account.account_id} aria-label={`Select ${account.display_name || account.handle} account`} className={accountId === account.account_id ? 'is-selected' : ''} onClick={() => setAccountId(account.account_id)}>{account.display_name || account.handle}</button>)}
       </div>}
 
       <div className="metric-grid" aria-busy={status === 'loading'}>
@@ -152,7 +169,7 @@ export default function Analytics() {
 
       <section className="data-card">
         <div className="table-header"><div><span className="table-kicker">Workbook</span><h2>{labelFor(platform)} data</h2></div><span className="row-count">{rows.length} rows</span></div>
-        {status === 'error' ? <p className="data-message">{error}</p> : <div className="table-wrap"><table><thead><tr>{columns.map((column) => <th key={column}>{labelFor(column)}</th>)}</tr></thead><tbody>{rows.length ? rows.map((row, index) => <tr key={row.post_id ?? row.sale_id ?? index}>{columns.map((column) => <td key={column}>{formatValue(row[column], column)}</td>)}</tr>) : <tr><td className="empty-table" colSpan={columns.length || 1}>{status === 'loading' ? 'Loading data…' : `No records found for ${targetDate}.`}</td></tr>}</tbody></table></div>}
+        {status === 'error' ? <p className="data-message">{error}</p> : <div className="table-wrap"><table><thead><tr>{columns.map((column) => <th key={column}>{labelFor(column)}</th>)}</tr></thead><tbody>{rows.length ? rows.map((row, index) => <tr key={row.post_id ?? row.sale_id ?? index}>{columns.map((column) => <td key={column} className={isSalesField(column) ? 'sales-value' : ''}>{formatValue(row[column], column)}</td>)}</tr>) : <tr><td className="empty-table" colSpan={columns.length || 1}>{status === 'loading' ? 'Loading data…' : `No records found for ${formatTargetDate(targetDate)}.`}</td></tr>}</tbody></table></div>}
       </section>
     </section>
   )
@@ -163,7 +180,8 @@ function MetricChip({ chip }) {
   const delta = metric?.delta == null ? null : Number(metric.delta)
   const positive = delta != null && delta >= 0
   const comparison = metric?.previous_value == null ? 'No previous snapshot' : `${positive ? '↑' : '↓'} ${formatValue(Math.abs(delta), chip.field_name)} vs previous snapshot`
-  return <article className="metric-chip"><MetricIcon /><span>{labelFor(chip.field_name)}</span><strong>{formatValue(metric?.current_value, chip.field_name)}</strong><small className={delta == null ? 'neutral' : positive ? 'up' : 'down'}>{comparison}</small></article>
+  const isSales = isSalesField(chip.field_name)
+  return <article className="metric-chip"><MetricIcon /><span>{labelFor(chip.field_name)}</span><strong className={isSales ? 'sales-value' : ''}>{formatValue(metric?.current_value, chip.field_name)}</strong><small className={delta == null ? 'neutral' : positive ? 'up' : 'down'}>{comparison}</small></article>
 }
 
 function MetricIcon() { return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><rect x="4" y="4" width="16" height="16" rx="3" /><path d="M8 15l2.5-3 2 2 3.5-5" /><path d="M16 8h2v2" /></svg> }
