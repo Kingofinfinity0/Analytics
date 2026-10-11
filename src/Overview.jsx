@@ -281,6 +281,7 @@ function makeSnapshots(metrics, accounts) {
     }
   })
 }
+// Performance Optimization: Replace O(N * M) nested scan over all recorded dates with single linear pointer traversal O(N + M)
 function makeSalesSeries(summary, selectedWindow) {
   const records = new Map(summary.map((row) => [row.date, Number(row.running_total_cents ?? 0) / 100]))
   const now = new Date()
@@ -298,17 +299,16 @@ function makeSalesSeries(summary, selectedWindow) {
     dates = Array.from({ length: 12 }, (_, index) => new Date(today.getFullYear(), index + 1, 0))
   }
 
-  let carry = 0
   const allDates = [...records.keys()].sort()
-  for (const date of allDates) {
-    if (date < formatDateKey(dates[0])) carry = records.get(date)
-    else break
-  }
+  let carry = 0
+  let datePointer = 0
+
+  // Single monotonic scan through sorted dates: O(N + M) time complexity instead of O(N * M)
   const points = dates.map((date) => {
     const key = formatDateKey(date)
-    for (const recordedDate of allDates) {
-      if (recordedDate > key) break
-      carry = records.get(recordedDate)
+    while (datePointer < allDates.length && allDates[datePointer] <= key) {
+      carry = records.get(allDates[datePointer])
+      datePointer++
     }
     return {
       date: key,
