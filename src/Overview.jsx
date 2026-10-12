@@ -94,12 +94,23 @@ export default function Overview({ dateRange = defaultRange() }) {
   const comparisonSubtitle = `Views ${formatMetricDate(viewDate)} · New follows ${formatMetricDate(followsDate)}`
   const topPost = data.posts[0] ?? null
   const postBenchmark = useMemo(() => (topPost ? getPostBenchmark(topPost, data.posts) : null), [topPost, data.posts])
-  const accountViews = useMemo(() => accounts.map((account) => ({
-    account_id: account.account_id,
-    label: account.label,
-    color: account.color,
-    views: data.metrics.filter((row) => row.account_id === account.account_id && row.metric_name === 'views').reduce((sum, row) => sum + finiteNumber(row.metric_value), 0),
-  })).filter((account) => account.views > 0), [accounts, data.metrics])
+  // Performance Optimization: Single-pass Map aggregation of views metrics O(A + M) instead of O(A * M) nested filter/reduce
+  const accountViews = useMemo(() => {
+    const viewsByAccount = new Map()
+    for (const row of data.metrics) {
+      if (row.metric_name === 'views' && row.account_id) {
+        viewsByAccount.set(row.account_id, (viewsByAccount.get(row.account_id) ?? 0) + (finiteNumber(row.metric_value) ?? 0))
+      }
+    }
+    return accounts
+      .map((account) => ({
+        account_id: account.account_id,
+        label: account.label,
+        color: account.color,
+        views: viewsByAccount.get(account.account_id) ?? 0,
+      }))
+      .filter((account) => account.views > 0)
+  }, [accounts, data.metrics])
   const sales = useMemo(() => makeSalesSeries(salesData.rows, salesWindow), [salesData.rows, salesWindow])
 
   if (data.status === 'error') return <section className="overview-page"><p className="data-message">{data.error}</p></section>
@@ -281,6 +292,7 @@ function makeSnapshots(metrics, accounts) {
     }
   })
 }
+// Performance Optimization: O(D + N) two-pointer linear traversal instead of O(D * N) nested loop over sorted dates
 function makeSalesSeries(summary, selectedWindow) {
   const records = new Map(summary.map((row) => [row.date, Number(row.running_total_cents ?? 0) / 100]))
   const now = new Date()
@@ -300,15 +312,13 @@ function makeSalesSeries(summary, selectedWindow) {
 
   let carry = 0
   const allDates = [...records.keys()].sort()
-  for (const date of allDates) {
-    if (date < formatDateKey(dates[0])) carry = records.get(date)
-    else break
-  }
+  let dateIdx = 0
+
   const points = dates.map((date) => {
     const key = formatDateKey(date)
-    for (const recordedDate of allDates) {
-      if (recordedDate > key) break
-      carry = records.get(recordedDate)
+    while (dateIdx < allDates.length && allDates[dateIdx] <= key) {
+      carry = records.get(allDates[dateIdx])
+      dateIdx++
     }
     return {
       date: key,
