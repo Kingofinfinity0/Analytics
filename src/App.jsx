@@ -41,6 +41,8 @@ function App() {
     let mounted = true
     restoreSession().then((restoredSession) => {
       if (mounted) setSession(restoredSession)
+    }).catch(() => {
+      if (mounted) setSession(null)
     })
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, nextSession) => setSession(nextSession))
     const refreshOnFocus = () => {

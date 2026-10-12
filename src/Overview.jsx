@@ -15,7 +15,7 @@ function defaultRange() {
   const end = new Date()
   const start = new Date(end)
   start.setDate(end.getDate() - 6)
-  return { start: start.toISOString().slice(0, 10), end: end.toISOString().slice(0, 10) }
+  return { start: formatDateKey(start), end: formatDateKey(end) }
 }
 
 function colorFor(handle, index) {
@@ -340,14 +340,14 @@ function comparisonOption(accounts) {
   return {
     ...baseOption(),
     tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' }, backgroundColor: '#FFFFFF', borderColor: '#E4E4E7', textStyle: { color: '#18181B' }, extraCssText: 'border-radius:8px;box-shadow:0 1px 3px rgba(0,0,0,.06);', formatter: (items) => items.map((item) => `${item.marker}${item.seriesName}: ${item.value == null ? 'No data' : number(item.value)}`).join('<br/>') },
-    legend: { top: 0, left: 84, itemWidth: 10, itemHeight: 10, textStyle: { color: '#8B8B8F', fontSize: 10 }, data: ['Views today', 'New followers'] },
+    legend: { top: 0, left: 84, itemWidth: 10, itemHeight: 10, textStyle: { color: '#8B8B8F', fontSize: 10 }, data: ['Views', 'New followers'] },
     grid: { top: 28, right: 12, bottom: 8, left: 84 },
     xAxis: [
       { type: 'value', max: maxValue * 1.08, splitLine: { lineStyle: { color: '#E4E4E7' } }, axisLabel: { color: '#8B8B8F' } },
     ],
     yAxis: { type: 'category', data: accounts.map((account) => account.label), axisLine: { show: false }, axisTick: { show: false }, axisLabel: { color: '#18181B' } },
     series: [
-      { name: 'Views today', type: 'bar', xAxisIndex: 0, barMaxWidth: 14, data: accounts.map((account, index) => ({ value: views[index], itemStyle: { color: account.color, borderRadius: [0, 4, 4, 0] } })) },
+      { name: 'Views', type: 'bar', xAxisIndex: 0, barMaxWidth: 14, data: accounts.map((account, index) => ({ value: views[index], itemStyle: { color: account.color, borderRadius: [0, 4, 4, 0] } })) },
       { name: 'New followers', type: 'bar', xAxisIndex: 0, barMaxWidth: 14, data: accounts.map((account, index) => ({ value: follows[index], itemStyle: { color: account.color, opacity: .65, borderRadius: [0, 4, 4, 0] } })) },
     ],
   }
