@@ -36,7 +36,8 @@ export default function Overview({ dateRange = defaultRange() }) {
       setData((current) => ({ ...current, status: 'loading' }))
       try {
         const [summaries, posts, accounts, metrics, sankey] = await Promise.all([
-          supabase.from('gumroad_daily_summary').select('*').order('date', { ascending: true }),
+          // Performance Optimization: Only fetch the single latest running total cents instead of the entire table history
+          supabase.from('gumroad_daily_summary').select('running_total_cents').order('date', { ascending: false }).limit(1),
           supabase.from('instagram_posts').select('*').not('posted_at', 'is', null).order('posted_at', { ascending: false }).limit(100),
           supabase.from('instagram_accounts').select('account_id,handle,display_name').order('created_at'),
           supabase.from('account_metrics').select('*').gte('date', range.start).lte('date', range.end).order('date', { ascending: true }),
@@ -81,7 +82,7 @@ export default function Overview({ dateRange = defaultRange() }) {
     return () => { cancelled = true }
   }, [salesWindow, reloadKey])
 
-  const latestSummary = data.summary.at(-1) ?? null
+  const latestSummary = data.summary[0] ?? null
   const revenue = latestSummary?.running_total_cents ?? 0
   const percent = Math.min((revenue / goalCents) * 100, 100)
   const accounts = useMemo(() => data.accounts.map((account, index) => ({ ...account, label: account.display_name || account.handle || 'Account ' + (index + 1), color: colorFor(account.display_name || account.handle, index) })), [data.accounts])
@@ -94,12 +95,24 @@ export default function Overview({ dateRange = defaultRange() }) {
   const comparisonSubtitle = `Views ${formatMetricDate(viewDate)} · New follows ${formatMetricDate(followsDate)}`
   const topPost = data.posts[0] ?? null
   const postBenchmark = useMemo(() => (topPost ? getPostBenchmark(topPost, data.posts) : null), [topPost, data.posts])
-  const accountViews = useMemo(() => accounts.map((account) => ({
-    account_id: account.account_id,
-    label: account.label,
-    color: account.color,
-    views: data.metrics.filter((row) => row.account_id === account.account_id && row.metric_name === 'views').reduce((sum, row) => sum + finiteNumber(row.metric_value), 0),
-  })).filter((account) => account.views > 0), [accounts, data.metrics])
+  // Performance Optimization: Single O(M) pass over data.metrics to aggregate views by account_id instead of O(A * M) nested filter calls
+  const accountViews = useMemo(() => {
+    const viewsByAccount = new Map()
+    for (const row of data.metrics) {
+      if (row.metric_name === 'views') {
+        const val = finiteNumber(row.metric_value)
+        if (val != null) {
+          viewsByAccount.set(row.account_id, (viewsByAccount.get(row.account_id) ?? 0) + val)
+        }
+      }
+    }
+    return accounts.map((account) => ({
+      account_id: account.account_id,
+      label: account.label,
+      color: account.color,
+      views: viewsByAccount.get(account.account_id) ?? 0,
+    })).filter((account) => account.views > 0)
+  }, [accounts, data.metrics])
   const sales = useMemo(() => makeSalesSeries(salesData.rows, salesWindow), [salesData.rows, salesWindow])
 
   if (data.status === 'error') return <section className="overview-page"><p className="data-message">{data.error}</p></section>
@@ -281,6 +294,7 @@ function makeSnapshots(metrics, accounts) {
     }
   })
 }
+// Performance Optimization: Use O(N + M) sliding pointer over chronological dates instead of O(N * M) nested loops
 function makeSalesSeries(summary, selectedWindow) {
   const records = new Map(summary.map((row) => [row.date, Number(row.running_total_cents ?? 0) / 100]))
   const now = new Date()
@@ -298,17 +312,15 @@ function makeSalesSeries(summary, selectedWindow) {
     dates = Array.from({ length: 12 }, (_, index) => new Date(today.getFullYear(), index + 1, 0))
   }
 
-  let carry = 0
   const allDates = [...records.keys()].sort()
-  for (const date of allDates) {
-    if (date < formatDateKey(dates[0])) carry = records.get(date)
-    else break
-  }
+  let carry = 0
+  let recordedIdx = 0
+
   const points = dates.map((date) => {
     const key = formatDateKey(date)
-    for (const recordedDate of allDates) {
-      if (recordedDate > key) break
-      carry = records.get(recordedDate)
+    while (recordedIdx < allDates.length && allDates[recordedIdx] <= key) {
+      carry = records.get(allDates[recordedIdx])
+      recordedIdx++
     }
     return {
       date: key,
