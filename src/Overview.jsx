@@ -6,9 +6,15 @@ import { supabase } from './supabase'
 const goalCents = 40000
 const accountColors = { matthew: '#3B82F6', luca: '#F59E0B' }
 const salesTimeframes = [{ id: 'week', label: 'Week' }, { id: 'month', label: 'Month' }, { id: 'year', label: 'Year' }]
-const money = (cents) => new Intl.NumberFormat(undefined, { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format((cents ?? 0) / 100)
-const dollars = (value) => new Intl.NumberFormat(undefined, { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(value ?? 0)
-const number = (value) => new Intl.NumberFormat().format(value ?? 0)
+
+// Performance Optimization: Cache Intl.NumberFormat instances at module level to avoid
+// recreating heavy locale formatters on every render and chart tooltip calculation.
+const currencyFormatter = new Intl.NumberFormat(undefined, { style: 'currency', currency: 'USD', maximumFractionDigits: 0 })
+const numberFormatter = new Intl.NumberFormat()
+
+const money = (cents) => currencyFormatter.format((cents ?? 0) / 100)
+const dollars = (value) => currencyFormatter.format(value ?? 0)
+const number = (value) => numberFormatter.format(value ?? 0)
 const metricValue = (row) => Number(row?.value ?? row?.metric_value ?? row?.metric ?? 0)
 
 function defaultRange() {
@@ -281,6 +287,9 @@ function makeSnapshots(metrics, accounts) {
     }
   })
 }
+
+// Performance Optimization: Use linear scan with a single pointer over sorted dates (O(D + N))
+// instead of re-scanning allDates from index 0 for every date point (O(D * N)).
 function makeSalesSeries(summary, selectedWindow) {
   const records = new Map(summary.map((row) => [row.date, Number(row.running_total_cents ?? 0) / 100]))
   const now = new Date()
@@ -300,15 +309,13 @@ function makeSalesSeries(summary, selectedWindow) {
 
   let carry = 0
   const allDates = [...records.keys()].sort()
-  for (const date of allDates) {
-    if (date < formatDateKey(dates[0])) carry = records.get(date)
-    else break
-  }
+  let recordIndex = 0
+
   const points = dates.map((date) => {
     const key = formatDateKey(date)
-    for (const recordedDate of allDates) {
-      if (recordedDate > key) break
-      carry = records.get(recordedDate)
+    while (recordIndex < allDates.length && allDates[recordIndex] <= key) {
+      carry = records.get(allDates[recordIndex])
+      recordIndex++
     }
     return {
       date: key,
