@@ -52,18 +52,18 @@ function followerAddsValue(metric: any): number | null {
 async function fetchProfile(token: string): Promise<{ profile?: InstagramProfile; error?: string }> {
   const url = new URL("https://graph.instagram.com/v25.0/me")
   url.searchParams.set("fields", "user_id,username,name,followers_count,follows_count")
-  url.searchParams.set("access_token", token)
-  let response = await fetch(url)
+  const headers = { Authorization: `Bearer ${token}` }
+  let response = await fetch(url, { headers })
   let result = await response.json()
   if (result.error) {
     // Keep the profile name if count fields are unavailable for this app.
     url.searchParams.set("fields", "user_id,username,name")
-    response = await fetch(url)
+    response = await fetch(url, { headers })
     result = await response.json()
   }
   if (result.error) {
     url.searchParams.set("fields", "user_id,username")
-    response = await fetch(url)
+    response = await fetch(url, { headers })
     result = await response.json()
   }
   if (result.error) return { error: result.error.message ?? "Instagram profile lookup failed." }
@@ -115,9 +115,8 @@ Deno.serve(async (req: Request) => {
     insightsUrl.searchParams.set("metric", "reach,follower_count,profile_views,accounts_engaged,views")
     insightsUrl.searchParams.set("period", "day")
     insightsUrl.searchParams.set("metric_type", "total_value")
-    insightsUrl.searchParams.set("access_token", conn.access_token)
     if (proof) insightsUrl.searchParams.set("appsecret_proof", proof)
-    const insightsRes = await fetch(insightsUrl)
+    const insightsRes = await fetch(insightsUrl, { headers: { Authorization: `Bearer ${conn.access_token}` } })
     const insightsJson = await insightsRes.json()
     let accountInsightsOk = true
     if (insightsJson.error) {
@@ -154,9 +153,8 @@ Deno.serve(async (req: Request) => {
     followsUrl.searchParams.set("period", "day")
     followsUrl.searchParams.set("metric_type", "total_value")
     followsUrl.searchParams.set("breakdown", "follow_type")
-    followsUrl.searchParams.set("access_token", conn.access_token)
     if (proof) followsUrl.searchParams.set("appsecret_proof", proof)
-    const followsRes = await fetch(followsUrl)
+    const followsRes = await fetch(followsUrl, { headers: { Authorization: `Bearer ${conn.access_token}` } })
     const followsJson = await followsRes.json()
     const followsMetric = (followsJson.data ?? []).find((metric: any) => metric.name === "follows_and_unfollows")
     const follows = followsMetric ? followerAddsValue(followsMetric) : null
@@ -169,9 +167,8 @@ Deno.serve(async (req: Request) => {
 
     const mediaUrl = new URL(`https://graph.instagram.com/v25.0/${igUserId}/media`)
     mediaUrl.searchParams.set("fields", "id,caption,media_type,timestamp,permalink,like_count,comments_count")
-    mediaUrl.searchParams.set("access_token", conn.access_token)
     if (proof) mediaUrl.searchParams.set("appsecret_proof", proof)
-    const mediaRes = await fetch(mediaUrl)
+    const mediaRes = await fetch(mediaUrl, { headers: { Authorization: `Bearer ${conn.access_token}` } })
     const mediaJson = await mediaRes.json()
     if (mediaJson.error) {
       const message = mediaJson.error.message ?? "Instagram media request failed."
@@ -188,9 +185,8 @@ Deno.serve(async (req: Request) => {
       const postInsightsUrl = new URL(`https://graph.instagram.com/v25.0/${item.id}/insights`)
       postInsightsUrl.searchParams.set("metric", "reach,saved,shares,total_interactions,views")
       postInsightsUrl.searchParams.set("metric_type", "total_value")
-      postInsightsUrl.searchParams.set("access_token", conn.access_token)
       if (proof) postInsightsUrl.searchParams.set("appsecret_proof", proof)
-      const postInsightsRes = await fetch(postInsightsUrl)
+      const postInsightsRes = await fetch(postInsightsUrl, { headers: { Authorization: `Bearer ${conn.access_token}` } })
       const postInsightsJson = await postInsightsRes.json()
 
       const rawFlat: Record<string, unknown> = {
