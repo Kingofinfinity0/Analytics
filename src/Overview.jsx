@@ -6,16 +6,27 @@ import { supabase } from './supabase'
 const goalCents = 40000
 const accountColors = { matthew: '#3B82F6', luca: '#F59E0B' }
 const salesTimeframes = [{ id: 'week', label: 'Week' }, { id: 'month', label: 'Month' }, { id: 'year', label: 'Year' }]
-const money = (cents) => new Intl.NumberFormat(undefined, { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format((cents ?? 0) / 100)
-const dollars = (value) => new Intl.NumberFormat(undefined, { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(value ?? 0)
-const number = (value) => new Intl.NumberFormat().format(value ?? 0)
+
+const moneyFormatter = new Intl.NumberFormat(undefined, { style: 'currency', currency: 'USD', maximumFractionDigits: 0 })
+const numberFormatter = new Intl.NumberFormat()
+
+const money = (cents) => moneyFormatter.format((cents ?? 0) / 100)
+const dollars = (value) => moneyFormatter.format(value ?? 0)
+const number = (value) => numberFormatter.format(value ?? 0)
 const metricValue = (row) => Number(row?.value ?? row?.metric_value ?? row?.metric ?? 0)
+
+function formatLocalDate(date) {
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
 
 function defaultRange() {
   const end = new Date()
   const start = new Date(end)
   start.setDate(end.getDate() - 6)
-  return { start: start.toISOString().slice(0, 10), end: end.toISOString().slice(0, 10) }
+  return { start: formatLocalDate(start), end: formatLocalDate(end) }
 }
 
 function colorFor(handle, index) {

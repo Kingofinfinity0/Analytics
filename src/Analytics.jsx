@@ -6,9 +6,25 @@ const fallbacks = {
   gumroad: ['created_at', 'product_name', 'price_cents', 'refunded', 'referral_source', 'utm_source'],
 }
 
+const currencyFormatter = new Intl.NumberFormat(undefined, { style: 'currency', currency: 'USD' })
+const numberFormatter = new Intl.NumberFormat()
+
 function today() {
   const date = new Date()
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
+}
+
+function getLocalDateBounds(dateStr) {
+  if (!dateStr || !/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
+    dateStr = today()
+  }
+  const [year, month, day] = dateStr.split('-').map(Number)
+  const start = new Date(year, month - 1, day, 0, 0, 0, 0)
+  const end = new Date(year, month - 1, day, 23, 59, 59, 999)
+  return {
+    startISO: start.toISOString(),
+    endISO: end.toISOString(),
+  }
 }
 
 function labelFor(value) {
@@ -17,8 +33,8 @@ function labelFor(value) {
 
 function formatValue(value, field = '') {
   if (value === null || value === undefined || value === '') return '—'
-  if (field.includes('cents')) return new Intl.NumberFormat(undefined, { style: 'currency', currency: 'USD' }).format(Number(value) / 100)
-  if (typeof value === 'number') return new Intl.NumberFormat().format(value)
+  if (field.includes('cents')) return currencyFormatter.format(Number(value) / 100)
+  if (typeof value === 'number') return numberFormatter.format(value)
   if (field.endsWith('_at') || field === 'created_at') return new Date(value).toLocaleDateString()
   if (typeof value === 'boolean') return value ? 'Yes' : 'No'
   return String(value)
@@ -71,14 +87,13 @@ export default function Analytics() {
         const selectedColumns = fields.filter((field) => field.display_as === 'column').map((field) => field.field_name)
         const table = isInstagram ? 'instagram_posts' : 'gumroad_sales'
         const dateColumn = isInstagram ? 'posted_at' : 'created_at'
-        const startOfDay = `${targetDate}T00:00:00Z`
-        const endOfDay = `${targetDate}T23:59:59.999Z`
+        const { startISO, endISO } = getLocalDateBounds(targetDate)
 
         let tableQuery = supabase
           .from(table)
           .select('*')
-          .gte(dateColumn, startOfDay)
-          .lte(dateColumn, endOfDay)
+          .gte(dateColumn, startISO)
+          .lte(dateColumn, endISO)
           .order(dateColumn, { ascending: false })
           .limit(100)
 
