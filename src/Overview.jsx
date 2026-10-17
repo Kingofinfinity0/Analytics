@@ -6,9 +6,15 @@ import { supabase } from './supabase'
 const goalCents = 40000
 const accountColors = { matthew: '#3B82F6', luca: '#F59E0B' }
 const salesTimeframes = [{ id: 'week', label: 'Week' }, { id: 'month', label: 'Month' }, { id: 'year', label: 'Year' }]
-const money = (cents) => new Intl.NumberFormat(undefined, { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format((cents ?? 0) / 100)
-const dollars = (value) => new Intl.NumberFormat(undefined, { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(value ?? 0)
-const number = (value) => new Intl.NumberFormat().format(value ?? 0)
+
+// Performance Optimization: Cache Intl.NumberFormat instances at module scope.
+// Prevents repeated constructor instantiations during chart tooltips, tick formatting, and stat calculations.
+const usdFormatter = new Intl.NumberFormat(undefined, { style: 'currency', currency: 'USD', maximumFractionDigits: 0 })
+const numberFormatter = new Intl.NumberFormat()
+
+const money = (cents) => usdFormatter.format((cents ?? 0) / 100)
+const dollars = (value) => usdFormatter.format(value ?? 0)
+const number = (value) => numberFormatter.format(value ?? 0)
 const metricValue = (row) => Number(row?.value ?? row?.metric_value ?? row?.metric ?? 0)
 
 function defaultRange() {
