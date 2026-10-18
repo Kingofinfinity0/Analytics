@@ -90,7 +90,12 @@ export default function Overview({ dateRange = defaultRange() }) {
   const todayKey = formatDateKey(new Date())
   const viewDate = snapshots.map((account) => account.viewsDate).filter(Boolean).sort().at(-1)
   const followsDate = snapshots.map((account) => account.followsDate).filter(Boolean).sort().at(-1)
-  const formatMetricDate = (date) => date === todayKey ? 'today' : date ? new Date(`${date}T00:00:00`).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) : 'no data'
+  const formatMetricDate = (date) => {
+    if (date === todayKey) return 'today'
+    if (!date) return 'no data'
+    const [y, m, d] = date.split('-').map(Number)
+    return new Date(y, m - 1, d).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
+  }
   const comparisonSubtitle = `Views ${formatMetricDate(viewDate)} · New follows ${formatMetricDate(followsDate)}`
   const topPost = data.posts[0] ?? null
   const postBenchmark = useMemo(() => (topPost ? getPostBenchmark(topPost, data.posts) : null), [topPost, data.posts])
@@ -112,7 +117,31 @@ export default function Overview({ dateRange = defaultRange() }) {
     <div className="overview-grid overview-grid--summary">
       <SalesRunningCard sales={sales} status={salesData.status} selectedWindow={salesWindow} onWindowChange={setSalesWindow} />
       {topPost ? <PostInsightsCard post={topPost} benchmark={postBenchmark} /> : <article className="overview-card top-post"><PostCardEmpty /></article>}
-      <article className="overview-card comparison-card"><CardTitle title="Account comparison" subtitle={comparisonSubtitle} /><Chart className="overview-chart overview-chart--bar" option={comparisonOption(snapshots)} /></article>
+      <article className="overview-card comparison-card">
+        <CardTitle title="Account comparison" subtitle={comparisonSubtitle} />
+        <Chart className="overview-chart overview-chart--bar" option={comparisonOption(snapshots)} />
+        <div className="account-comparison-stats" aria-label="Account followers and engagement details">
+          {snapshots.map((account) => (
+            <div key={account.account_id || account.label} className="account-stat-row">
+              <span className="account-stat-name" style={{ color: account.color }}>{account.label}</span>
+              <div className="account-stat-metrics">
+                <span className="stat-pill" title={`Total followers as of ${formatMetricDate(account.metricDate)}`}>
+                  <strong>{account.followers != null ? number(account.followers) : '—'}</strong>
+                  <small>followers</small>
+                </span>
+                <span className="stat-pill" title={`New follows (${formatMetricDate(account.followsDate)})`}>
+                  <strong>{account.newFollowers != null ? `${account.newFollowers >= 0 ? '+' : ''}${number(account.newFollowers)}` : '—'}</strong>
+                  <small>new follows</small>
+                </span>
+                <span className="stat-pill" title={`Views (${formatMetricDate(account.viewsDate)})`}>
+                  <strong>{account.views != null ? number(account.views) : '—'}</strong>
+                  <small>views</small>
+                </span>
+              </div>
+            </div>
+          ))}
+        </div>
+      </article>
     </div>
   </section>
 }
@@ -340,15 +369,15 @@ function comparisonOption(accounts) {
   return {
     ...baseOption(),
     tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' }, backgroundColor: '#FFFFFF', borderColor: '#E4E4E7', textStyle: { color: '#18181B' }, extraCssText: 'border-radius:8px;box-shadow:0 1px 3px rgba(0,0,0,.06);', formatter: (items) => items.map((item) => `${item.marker}${item.seriesName}: ${item.value == null ? 'No data' : number(item.value)}`).join('<br/>') },
-    legend: { top: 0, left: 84, itemWidth: 10, itemHeight: 10, textStyle: { color: '#8B8B8F', fontSize: 10 }, data: ['Views today', 'New followers'] },
+    legend: { top: 0, left: 84, itemWidth: 10, itemHeight: 10, textStyle: { color: '#8B8B8F', fontSize: 10 }, data: ['Views', 'New follows'] },
     grid: { top: 28, right: 12, bottom: 8, left: 84 },
     xAxis: [
       { type: 'value', max: maxValue * 1.08, splitLine: { lineStyle: { color: '#E4E4E7' } }, axisLabel: { color: '#8B8B8F' } },
     ],
     yAxis: { type: 'category', data: accounts.map((account) => account.label), axisLine: { show: false }, axisTick: { show: false }, axisLabel: { color: '#18181B' } },
     series: [
-      { name: 'Views today', type: 'bar', xAxisIndex: 0, barMaxWidth: 14, data: accounts.map((account, index) => ({ value: views[index], itemStyle: { color: account.color, borderRadius: [0, 4, 4, 0] } })) },
-      { name: 'New followers', type: 'bar', xAxisIndex: 0, barMaxWidth: 14, data: accounts.map((account, index) => ({ value: follows[index], itemStyle: { color: account.color, opacity: .65, borderRadius: [0, 4, 4, 0] } })) },
+      { name: 'Views', type: 'bar', xAxisIndex: 0, barMaxWidth: 14, data: accounts.map((account, index) => ({ value: views[index], itemStyle: { color: account.color, borderRadius: [0, 4, 4, 0] } })) },
+      { name: 'New follows', type: 'bar', xAxisIndex: 0, barMaxWidth: 14, data: accounts.map((account, index) => ({ value: follows[index], itemStyle: { color: account.color, opacity: .65, borderRadius: [0, 4, 4, 0] } })) },
     ],
   }
 }
