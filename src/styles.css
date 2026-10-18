@@ -121,3 +121,45 @@
 .overview-page--new .post-metric-row small{grid-column:2;grid-row:3;white-space:normal}
 
 .overview-page--new .post-metric-row:nth-child(n+4){display:none}
+
+.account-comparison-stats {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+  margin-top: var(--space-xs);
+  padding-top: var(--space-xs);
+  border-top: 1px solid var(--color-border);
+}
+.account-stat-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-sm);
+  min-width: 0;
+}
+.account-stat-name {
+  font-size: var(--font-caption);
+  font-weight: var(--weight-semibold);
+  white-space: nowrap;
+}
+.account-stat-metrics {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  min-width: 0;
+  overflow: hidden;
+}
+.stat-pill {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 3px;
+  font-size: var(--font-caption);
+}
+.stat-pill strong {
+  font-weight: var(--weight-semibold);
+  color: var(--color-text);
+}
+.stat-pill small {
+  color: var(--color-text-secondary);
+  font-size: 11px;
+}
