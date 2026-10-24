@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { getLocalDateBounds } from './Analytics'
 import ClientEChart from './ClientEChart'
 import SankeyCard from './SankeyCard'
 import { supabase } from './supabase'
@@ -11,11 +12,26 @@ const dollars = (value) => new Intl.NumberFormat(undefined, { style: 'currency',
 const number = (value) => new Intl.NumberFormat().format(value ?? 0)
 const metricValue = (row) => Number(row?.value ?? row?.metric_value ?? row?.metric ?? 0)
 
+function formatDateKey(date) { return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}` }
+
 function defaultRange() {
   const end = new Date()
   const start = new Date(end)
   start.setDate(end.getDate() - 6)
-  return { start: start.toISOString().slice(0, 10), end: end.toISOString().slice(0, 10) }
+  return { start: formatDateKey(start), end: formatDateKey(end) }
+}
+
+function getPresetRange(days) {
+  const end = new Date()
+  const start = new Date(end)
+  start.setDate(end.getDate() - (days - 1))
+  return { start: formatDateKey(start), end: formatDateKey(end) }
+}
+
+function getThisMonthRange() {
+  const end = new Date()
+  const start = new Date(end.getFullYear(), end.getMonth(), 1)
+  return { start: formatDateKey(start), end: formatDateKey(end) }
 }
 
 function colorFor(handle, index) {
@@ -23,21 +39,25 @@ function colorFor(handle, index) {
   return name.includes('luca') ? accountColors.luca : name.includes('matthew') ? accountColors.matthew : index === 1 ? accountColors.luca : accountColors.matthew
 }
 
-export default function Overview({ dateRange = defaultRange() }) {
+export default function Overview({ dateRange }) {
+  const initialRange = useMemo(() => dateRange ?? defaultRange(), [dateRange])
+  const [rangeState, setRangeState] = useState(initialRange)
   const [data, setData] = useState({ status: 'loading', summary: [], sankey: { status: 'loading' }, posts: [], accounts: [], metrics: [] })
   const [salesData, setSalesData] = useState({ status: 'loading', rows: [] })
   const [reloadKey, setReloadKey] = useState(0)
   const [salesWindow, setSalesWindow] = useState('month')
-  const range = useMemo(() => ({ start: dateRange.start, end: dateRange.end }), [dateRange.start, dateRange.end])
+  const range = useMemo(() => ({ start: rangeState.start, end: rangeState.end }), [rangeState.start, rangeState.end])
 
   useEffect(() => {
     let cancelled = false
     async function load() {
       setData((current) => ({ ...current, status: 'loading' }))
       try {
+        const { startISO } = getLocalDateBounds(range.start)
+        const { endISO } = getLocalDateBounds(range.end)
         const [summaries, posts, accounts, metrics, sankey] = await Promise.all([
-          supabase.from('gumroad_daily_summary').select('*').order('date', { ascending: true }),
-          supabase.from('instagram_posts').select('*').not('posted_at', 'is', null).order('posted_at', { ascending: false }).limit(100),
+          supabase.from('gumroad_daily_summary').select('*').gte('date', range.start).lte('date', range.end).order('date', { ascending: true }),
+          supabase.from('instagram_posts').select('*').not('posted_at', 'is', null).gte('posted_at', startISO).lte('posted_at', endISO).order('posted_at', { ascending: false }).limit(100),
           supabase.from('instagram_accounts').select('account_id,handle,display_name').order('created_at'),
           supabase.from('account_metrics').select('*').gte('date', range.start).lte('date', range.end).order('date', { ascending: true }),
           supabase.rpc('get_overview_sankey_metrics', { p_start_date: range.start, p_end_date: range.end }),
@@ -104,6 +124,23 @@ export default function Overview({ dateRange = defaultRange() }) {
 
   if (data.status === 'error') return <section className="overview-page"><p className="data-message">{data.error}</p></section>
   return <section className="overview-page overview-page--new" aria-label="Overview">
+    <header className="overview-header">
+      <div>
+        <p className="eyebrow">Operating Snapshot</p>
+        <h1>Overview</h1>
+      </div>
+      <div className="overview-controls">
+        <div className="date-range-controls">
+          <label className="date-control">From <input type="date" value={rangeState.start} onChange={(e) => setRangeState((prev) => ({ ...prev, start: e.target.value }))} /></label>
+          <label className="date-control">To <input type="date" value={rangeState.end} onChange={(e) => setRangeState((prev) => ({ ...prev, end: e.target.value }))} /></label>
+        </div>
+        <div className="sales-tabs" role="tablist" aria-label="Date range presets">
+          <button type="button" role="tab" aria-selected={false} onClick={() => setRangeState(getPresetRange(7))}>7D</button>
+          <button type="button" role="tab" aria-selected={false} onClick={() => setRangeState(getPresetRange(30))}>30D</button>
+          <button type="button" role="tab" aria-selected={false} onClick={() => setRangeState(getThisMonthRange())}>This Month</button>
+        </div>
+      </div>
+    </header>
     <div className="overview-grid overview-grid--priority">
       <SankeyCard {...data.sankey} accountViews={accountViews} onRetry={() => setReloadKey((key) => key + 1)} />
       <article className="overview-card goal-card"><CardTitle title="Revenue goal" subtitle={money(Math.max(goalCents - revenue, 0)) + ' remaining of ' + money(goalCents)} /><Chart className="overview-chart overview-chart--gauge" option={gaugeOption(percent)} /><strong className="goal-amount">{money(revenue)}</strong></article>
@@ -323,7 +360,6 @@ function makeSalesSeries(summary, selectedWindow) {
   })
   return { points }
 }
-function formatDateKey(date) { return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}` }
 function salesOption(sales, echarts) {
   const currentDate = formatDateKey(new Date())
   const currentPoint = sales.points.find((point) => point.date === currentDate || point.isCurrentMonth)
